@@ -58,7 +58,7 @@ val Hand = FontFamily(
     Font(R.font.kalam_bold, FontWeight.Bold),
 )
 val Serif = Hand
-val Numbers = TextStyle(fontFeatureSettings = "tnum")
+val Numbers = TextStyle(fontFamily = Hand, fontFeatureSettings = "tnum")
 
 private val handType = Typography().run {
     Typography(
