@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.adastra.app.data.AppData
 import com.adastra.app.data.Repository
 import com.adastra.app.data.Stats
+import com.adastra.app.data.appToday
 import com.adastra.app.data.fmtHours
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -53,7 +54,7 @@ import java.time.temporal.ChronoUnit
 @Composable
 fun DayPagesScreen(repo: Repository, start: LocalDate, onClose: () -> Unit) {
     val data by repo.data.collectAsStateWithLifecycle()
-    val today = LocalDate.now()
+    val today = appToday()
     val first = Stats.startDate(data, today)
     val count = (ChronoUnit.DAYS.between(first, today) + 1).toInt().coerceAtLeast(1)
     var index by rememberSaveable {

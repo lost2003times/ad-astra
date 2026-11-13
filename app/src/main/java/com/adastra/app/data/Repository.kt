@@ -25,7 +25,7 @@ class Repository(private val file: File) {
     val data: StateFlow<AppData> = _data
 
     init {
-        if (_data.value.since == null) update { it.copy(since = LocalDate.now().toString()) }
+        if (_data.value.since == null) update { it.copy(since = appToday().toString()) }
     }
 
     private fun load(): AppData = try {

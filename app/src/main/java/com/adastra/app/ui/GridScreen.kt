@@ -47,6 +47,7 @@ import com.adastra.app.data.AppData
 import com.adastra.app.data.Habit
 import com.adastra.app.data.Repository
 import com.adastra.app.data.Stats
+import com.adastra.app.data.appToday
 import com.adastra.app.data.fmtHours
 import java.time.LocalDate
 import java.time.YearMonth
@@ -60,7 +61,7 @@ private val HEADER_H = 104.dp
 @Composable
 fun GridScreen(repo: Repository, onOpenDay: (LocalDate) -> Unit) {
     val data by repo.data.collectAsStateWithLifecycle()
-    val today = LocalDate.now()
+    val today = appToday()
     var month by remember { mutableStateOf(YearMonth.from(today)) }
     val habits = data.habits.filter { !it.archived }
     val days = (1..month.lengthOfMonth()).map { month.atDay(it) }

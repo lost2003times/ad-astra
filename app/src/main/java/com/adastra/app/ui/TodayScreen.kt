@@ -45,6 +45,7 @@ import com.adastra.app.data.DayEntry
 import com.adastra.app.data.Habit
 import com.adastra.app.data.Repository
 import com.adastra.app.data.Stats
+import com.adastra.app.data.appToday
 import com.adastra.app.data.Word
 import com.adastra.app.data.fmtHours
 import java.time.LocalDate
@@ -55,7 +56,7 @@ import kotlin.math.roundToInt
 @Composable
 fun TodayScreen(repo: Repository) {
     val data by repo.data.collectAsStateWithLifecycle()
-    val today = LocalDate.now()
+    val today = appToday()
     val date = today   // past days are read-only: they open as pages from the Grid
     val entry = data.days[date.toString()] ?: DayEntry(date.toString())
     val habits = data.habits.filter { !it.archived }
@@ -144,6 +145,7 @@ private fun stepMessage(e: DayEntry, steps: Int, ySteps: Int, isToday: Boolean):
 private fun Header(date: LocalDate, name: String) {
     val hour = LocalTime.now().hour
     val greet = when {
+        hour < 4 -> "Good evening"
         hour < 12 -> "Good morning"
         hour < 17 -> "Good afternoon"
         else -> "Good evening"

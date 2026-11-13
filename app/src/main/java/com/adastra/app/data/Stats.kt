@@ -2,8 +2,14 @@ package com.adastra.app.data
 
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.temporal.TemporalAdjusters
 import kotlin.math.roundToInt
+
+/** A day runs from 4 AM to 4 AM, so a check-in after midnight still counts for the day just lived. */
+const val DAY_STARTS_AT_HOUR = 4L
+
+fun appToday(): LocalDate = LocalDateTime.now().minusHours(DAY_STARTS_AT_HOUR).toLocalDate()
 
 enum class DayState { STEP, REST, ZERO, FUTURE }
 

@@ -41,6 +41,7 @@ import com.adastra.app.data.DayState
 import com.adastra.app.data.Repository
 import com.adastra.app.data.Review
 import com.adastra.app.data.Stats
+import com.adastra.app.data.appToday
 import com.adastra.app.data.fmtHours
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -50,7 +51,7 @@ import java.util.Locale
 @Composable
 fun WeekScreen(repo: Repository) {
     val data by repo.data.collectAsStateWithLifecycle()
-    val today = LocalDate.now()
+    val today = appToday()
     val thisWeek = Stats.weekStart(today)
     var start by remember { mutableStateOf(thisWeek) }
     val isCurrent = start == thisWeek

@@ -20,7 +20,7 @@ The rule is simple: **never a zero day.** You don't have to do everything. One h
 
 **Like a notebook.** Text is set in the Kalam handwriting font, and switching tabs or days turns a page.
 
-**Fair stats.** Days before you started using the app don't count as zeros. Today only counts once you log something.
+**Fair stats.** Days before you started using the app don't count as zeros. Today only counts once you log something. A day runs from 4 AM to 4 AM, so a check-in after midnight still counts for the day you just finished.
 
 ## Privacy
 

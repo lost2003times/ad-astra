@@ -16,6 +16,7 @@ import com.adastra.app.R
 import com.adastra.app.data.AppData
 import com.adastra.app.data.Settings
 import com.adastra.app.data.Stats
+import com.adastra.app.data.appToday
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -46,7 +47,7 @@ object Reminder {
 
     @SuppressLint("MissingPermission")
     fun showIfZero(ctx: Context, data: AppData) {
-        if (Stats.isStep(data, LocalDate.now())) return
+        if (Stats.isStep(data, appToday())) return
         val nm = NotificationManagerCompat.from(ctx)
         if (!nm.areNotificationsEnabled()) return
         val word = data.words.randomOrNull()?.text ?: "Never a zero."
