@@ -43,7 +43,10 @@ import com.adastra.app.data.Repository
 import com.adastra.app.notify.Reminder
 import com.adastra.app.ui.Astra
 import com.adastra.app.ui.AstraTheme
+import androidx.activity.compose.BackHandler
+import com.adastra.app.ui.DayPagesScreen
 import com.adastra.app.ui.GridScreen
+import com.adastra.app.ui.PageTurner
 import com.adastra.app.ui.SettingsScreen
 import androidx.compose.ui.unit.dp
 import com.adastra.app.ui.TodayScreen
@@ -75,7 +78,9 @@ enum class Tab(val label: String, val icon: ImageVector) {
 @Composable
 fun AppRoot(repo: Repository) {
     var tab by rememberSaveable { mutableStateOf(Tab.Today) }
-    var dateStr by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    // A past day opened from the Grid as a read-only page (null = none open).
+    var openDay by rememberSaveable { mutableStateOf<String?>(null) }
+    BackHandler(enabled = openDay != null) { openDay = null }
     val ctx = LocalContext.current
 
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -96,7 +101,7 @@ fun AppRoot(repo: Repository) {
                         NavigationBarItem(
                             selected = tab == t,
                             onClick = {
-                                if (t == Tab.Today && tab == Tab.Today) dateStr = LocalDate.now().toString()
+                                openDay = null
                                 tab = t
                             },
                             icon = { Icon(t.icon, contentDescription = t.label) },
@@ -115,12 +120,19 @@ fun AppRoot(repo: Repository) {
             },
         ) { pad ->
             Box(Modifier.padding(pad)) {
-                when (tab) {
-                    Tab.Today -> TodayScreen(repo, LocalDate.parse(dateStr)) { dateStr = it.toString() }
-                    Tab.Grid -> GridScreen(repo) { dateStr = it.toString(); tab = Tab.Today }
-                    Tab.Week -> WeekScreen(repo)
-                    Tab.Words -> WordsScreen(repo)
-                    Tab.Setup -> SettingsScreen(repo)
+                val day = openDay
+                if (day != null) {
+                    DayPagesScreen(repo, LocalDate.parse(day)) { openDay = null }
+                } else {
+                    PageTurner(tab, order = { it.ordinal }) { t ->
+                        when (t) {
+                            Tab.Today -> TodayScreen(repo)
+                            Tab.Grid -> GridScreen(repo) { openDay = it.toString() }
+                            Tab.Week -> WeekScreen(repo)
+                            Tab.Words -> WordsScreen(repo)
+                            Tab.Setup -> SettingsScreen(repo)
+                        }
+                    }
                 }
             }
         }

@@ -53,9 +53,10 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 @Composable
-fun TodayScreen(repo: Repository, date: LocalDate, onDateChange: (LocalDate) -> Unit) {
+fun TodayScreen(repo: Repository) {
     val data by repo.data.collectAsStateWithLifecycle()
     val today = LocalDate.now()
+    val date = today   // past days are read-only: they open as pages from the Grid
     val entry = data.days[date.toString()] ?: DayEntry(date.toString())
     val habits = data.habits.filter { !it.archived }
     val steps = entry.done.size
@@ -63,7 +64,7 @@ fun TodayScreen(repo: Repository, date: LocalDate, onDateChange: (LocalDate) -> 
     val focus = data.focus[Stats.weekStart(date).toString()]
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)) {
-        item { Header(date, today, data.settings.name, onDateChange) }
+        item { Header(date, data.settings.name) }
         item { Quote(data.words, date) }
         item {
             Streak(
@@ -140,26 +141,17 @@ private fun stepMessage(e: DayEntry, steps: Int, ySteps: Int, isToday: Boolean):
 }
 
 @Composable
-private fun Header(date: LocalDate, today: LocalDate, name: String, onDateChange: (LocalDate) -> Unit) {
+private fun Header(date: LocalDate, name: String) {
     val hour = LocalTime.now().hour
     val greet = when {
-        date != today -> "Looking back"
         hour < 12 -> "Good morning"
         hour < 17 -> "Good afternoon"
         else -> "Good evening"
     }
     ScreenTitle(
         title = date.format(DateTimeFormatter.ofPattern("EEEE, d MMM")),
-        subtitle = if (name.isBlank() || date != today) greet else "$greet, $name",
-    ) {
-        IconButton(onClick = { onDateChange(date.minusDays(1)) }) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous day", tint = Astra.Text)
-        }
-        val canNext = date.isBefore(today)
-        IconButton(onClick = { onDateChange(date.plusDays(1)) }, enabled = canNext) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next day", tint = if (canNext) Astra.Text else Astra.Line)
-        }
-    }
+        subtitle = if (name.isBlank()) greet else "$greet, $name",
+    )
 }
 
 /** One of your own lines, set in serif like handwriting on the page. */

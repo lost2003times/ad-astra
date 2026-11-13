@@ -86,7 +86,7 @@ fun GridScreen(repo: Repository, onOpenDay: (LocalDate) -> Unit) {
         item { SleepChart(data, days, today) }
         item { Spacer(Modifier.height(16.dp)); GridHeader(habits, hScroll) }
         items(days, key = { it.toString() }) { d -> GridRow(data, habits, d, today, hScroll, onOpenDay) }
-        item { Hint("Tap a day to open it. Blue marks a rest day.", Modifier.padding(top = 14.dp)) }
+        item { Hint("Tap a day to read its page. Blue marks a rest day.", Modifier.padding(top = 14.dp)) }
     }
 }
 

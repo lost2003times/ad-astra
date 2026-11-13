@@ -10,13 +10,15 @@ The rule is simple: **never a zero day.** You don't have to do everything. One h
 
 | Tab | What it does |
 | --- | --- |
-| **Today** | The evening check-in. Tick habits, mark a rest day, log last night's sleep and write one line about the day. Shows your streak of days without a zero, how today compares with yesterday, and one of your own lines. Use the arrows to fill in past days. |
-| **Grid** | A month at a glance, laid out like the notebook. Days run down the rows, habits run across the columns (with vertical labels), and sleep hours sit in the last column. Above it is the month's sleep curve. Tap a day to open it. |
+| **Today** | The evening check-in. Tick habits, mark a rest day, log last night's sleep and write one line about the day. Shows your streak of days without a zero, how today compares with yesterday, and one of your own lines. Only today can be edited. |
+| **Grid** | A month at a glance, laid out like the notebook. Days run down the rows, habits run across the columns (with vertical labels), and sleep hours sit in the last column. Above it is the month's sleep curve. Tap a day to read it as a page, then swipe to turn to the next or previous day. Past days are read-only. |
 | **Week** | The weekly review. Shows days without a zero, a 7-day row of squares, check-ins, average sleep and rest days. Then "What went well" comes first, then "What to work on", then each habit's 7 days compared with last week. You also set one focus for next week, which appears on Today. |
 | **Words** | Your mantras and saved journal lines. They appear on Today and in the evening reminder. |
 | **Setup** | Your name, the reminder time, and your habits: add, rename, reorder or hide them. Hidden habits keep their history. |
 
 **Evening reminder.** If nothing is logged by the set time (9:30 PM by default), you get a notification with one of your own lines. It doesn't nag, and it doesn't show red marks.
+
+**Like a notebook.** Text is set in the Kalam handwriting font, and switching tabs or days turns a page.
 
 **Fair stats.** Days before you started using the app don't count as zeros. Today only counts once you log something.
 
@@ -43,6 +45,8 @@ app/src/main/java/com/adastra/app/
   data/Stats.kt          Streaks, weekly numbers and the weekly review text
   notify/Reminder.kt     Evening reminder scheduling, alarm and boot receivers
   ui/Theme.kt            Colors, type and shared pieces (Section, CheckSquare, sideways text)
+  ui/PageTurn.kt         The page-turn animation
+  ui/DayPagesScreen.kt   Read-only pages for past days
   ui/*Screen.kt          One file per tab
 ```
 
