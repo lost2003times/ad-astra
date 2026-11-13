@@ -30,7 +30,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import com.adastra.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -50,8 +52,33 @@ object Astra {
     val Rest = Color(0xFF4F6B87)
 }
 
-val Serif = FontFamily.Serif
+/** Kalam: a handwriting face, so the app reads like the paper notebook. */
+val Hand = FontFamily(
+    Font(R.font.kalam_regular, FontWeight.Normal),
+    Font(R.font.kalam_bold, FontWeight.Bold),
+)
+val Serif = Hand
 val Numbers = TextStyle(fontFeatureSettings = "tnum")
+
+private val handType = Typography().run {
+    Typography(
+        displayLarge = displayLarge.copy(fontFamily = Hand),
+        displayMedium = displayMedium.copy(fontFamily = Hand),
+        displaySmall = displaySmall.copy(fontFamily = Hand),
+        headlineLarge = headlineLarge.copy(fontFamily = Hand),
+        headlineMedium = headlineMedium.copy(fontFamily = Hand),
+        headlineSmall = headlineSmall.copy(fontFamily = Hand),
+        titleLarge = titleLarge.copy(fontFamily = Hand),
+        titleMedium = titleMedium.copy(fontFamily = Hand),
+        titleSmall = titleSmall.copy(fontFamily = Hand),
+        bodyLarge = bodyLarge.copy(fontFamily = Hand),
+        bodyMedium = bodyMedium.copy(fontFamily = Hand),
+        bodySmall = bodySmall.copy(fontFamily = Hand),
+        labelLarge = labelLarge.copy(fontFamily = Hand),
+        labelMedium = labelMedium.copy(fontFamily = Hand),
+        labelSmall = labelSmall.copy(fontFamily = Hand),
+    )
+}
 
 private val scheme = darkColorScheme(
     primary = Astra.Ink, onPrimary = Color.White,
@@ -65,7 +92,7 @@ private val scheme = darkColorScheme(
 
 @Composable
 fun AstraTheme(content: @Composable () -> Unit) =
-    MaterialTheme(colorScheme = scheme, typography = Typography(), content = content)
+    MaterialTheme(colorScheme = scheme, typography = handType, content = content)
 
 @Composable
 fun fieldColors() = OutlinedTextFieldDefaults.colors(
