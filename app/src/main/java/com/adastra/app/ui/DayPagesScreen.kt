@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,11 +13,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +28,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,6 +42,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.adastra.app.data.AppData
+import com.adastra.app.data.DayEntry
 import com.adastra.app.data.Repository
 import com.adastra.app.data.Stats
 import com.adastra.app.data.appToday
@@ -64,6 +69,10 @@ fun DayPagesScreen(repo: Repository, start: LocalDate, onClose: () -> Unit) {
     val drag = remember { Animatable(0f) }
     val direction by remember { derivedStateOf { if (drag.value > 0f) 1 else if (drag.value < 0f) -1 else 0 } }
     val scope = rememberCoroutineScope()
+    // Special access: past days stay locked until the lock is held. Turning the page locks it again.
+    var editing by remember(index) { mutableStateOf(false) }
+    var showLockHint by remember { mutableStateOf(false) }
+    val isToday = first.plusDays(index.toLong()) == today
 
     Column(Modifier.fillMaxSize()) {
         // Drawn above the pages so a turning page never covers it.
@@ -73,13 +82,36 @@ fun DayPagesScreen(repo: Repository, start: LocalDate, onClose: () -> Unit) {
                 Text("Grid", color = Astra.Ink, fontSize = 16.sp)
             }
             Spacer(Modifier.weight(1f))
-            Text("Page ${index + 1} of $count", color = Astra.Muted, fontSize = 14.sp, modifier = Modifier.padding(end = 12.dp))
+            if (editing) {
+                Text("Editing", color = Astra.Signal, fontSize = 14.sp)
+                TextButton(onClick = { editing = false }) { Text("Lock", color = Astra.Ink, fontSize = 16.sp) }
+            } else {
+                Text("Page ${index + 1} of $count", color = Astra.Muted, fontSize = 14.sp)
+                if (!isToday) {
+                    Box(
+                        Modifier
+                            .padding(start = 4.dp)
+                            .size(48.dp)
+                            .pointerInput(index) {
+                                detectTapGestures(
+                                    onTap = { showLockHint = true },
+                                    onLongPress = { showLockHint = false; editing = true },
+                                )
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Filled.Lock, "Hold to unlock editing", tint = Astra.Muted, modifier = Modifier.size(20.dp)) }
+                } else Spacer(Modifier.width(12.dp))
+            }
+        }
+        if (showLockHint && !editing) {
+            Hint("Past days are locked. Hold the lock to edit this one.", Modifier.padding(horizontal = 24.dp, vertical = 2.dp))
         }
         Box(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .pointerInput(count, index) {
+                .pointerInput(count, index, editing) {
+                    if (editing) return@pointerInput   // no page turns while editing: the sleep slider needs the drag
                     fun settle() {
                         scope.launch {
                             val target = when {
@@ -120,7 +152,7 @@ fun DayPagesScreen(repo: Repository, start: LocalDate, onClose: () -> Unit) {
                         else -> Modifier.turningPage { if (direction == 1) drag.value else 1f + drag.value }
                     }
                     Box(Modifier.fillMaxSize().then(role).background(Astra.Bg)) {
-                        DayPage(data, first.plusDays(page.toLong()))
+                        DayPage(repo, data, first.plusDays(page.toLong()), editing && page == index)
                     }
                 }
             }
@@ -129,7 +161,7 @@ fun DayPagesScreen(repo: Repository, start: LocalDate, onClose: () -> Unit) {
 }
 
 @Composable
-private fun DayPage(data: AppData, date: LocalDate) {
+private fun DayPage(repo: Repository, data: AppData, date: LocalDate, editing: Boolean) {
     val e = data.days[date.toString()]
     val habits = data.habits.filter { !it.archived || e?.done?.contains(it.id) == true }
     Column(
@@ -141,6 +173,12 @@ private fun DayPage(data: AppData, date: LocalDate) {
         Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = Astra.Muted, fontSize = 15.sp)
         Text(date.format(DateTimeFormatter.ofPattern("d MMMM yyyy")), color = Astra.Text, fontSize = 30.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(14.dp))
+
+        if (editing) {
+            DayEditor(repo, date, e ?: DayEntry(date.toString()), data.habits.filter { !it.archived })
+            Spacer(Modifier.height(16.dp))
+            return@Column
+        }
 
         val empty = e == null || (!e.isStep && e.note.isBlank() && e.sleep == null)
         if (empty || e == null) {

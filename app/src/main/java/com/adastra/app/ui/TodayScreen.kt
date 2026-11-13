@@ -78,55 +78,57 @@ fun TodayScreen(repo: Repository) {
         if (!focus.isNullOrBlank()) item {
             Section("This week's focus") { Text(focus, color = Astra.Text, fontSize = 15.sp, lineHeight = 21.sp) }
         }
-        item {
-            Section("Habits", trailing = "$steps of ${habits.size}") {
-                if (habits.isEmpty()) Hint("Add habits in Setup.")
-                habits.chunked(2).forEach { pair ->
-                    Row(Modifier.fillMaxWidth()) {
-                        pair.forEach { h ->
-                            HabitRow(h, h.id in entry.done, Modifier.weight(1f)) { repo.toggleHabit(date, h.id) }
-                        }
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-        item {
-            Section("Rest day") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Hint("A planned recovery day counts as a step.", Modifier.weight(1f))
-                    Switch(
-                        checked = entry.rest, onCheckedChange = { repo.setRest(date, it) },
-                        colors = SwitchDefaults.colors(checkedTrackColor = Astra.Rest, uncheckedTrackColor = Astra.Bg),
-                    )
-                }
-            }
-        }
-        item {
-            Section("Sleep", trailing = entry.sleep?.let { "${fmtHours(it)} h" } ?: "Not logged") {
-                Slider(
-                    value = entry.sleep ?: 7f,
-                    onValueChange = { repo.setSleep(date, (it * 2).roundToInt() / 2f) },
-                    valueRange = 3f..12f,
-                    steps = 17,
-                    colors = SliderDefaults.colors(thumbColor = Astra.Ink, activeTrackColor = Astra.Ink, inactiveTrackColor = Astra.Line),
-                )
-                Row {
-                    Hint("3 h")
-                    Spacer(Modifier.weight(1f))
-                    if (entry.sleep != null) {
-                        Text(
-                            "Clear", color = Astra.Muted, fontSize = 13.sp,
-                            modifier = Modifier.clickable { repo.setSleep(date, null) },
-                        )
-                        Spacer(Modifier.weight(1f))
-                    }
-                    Hint("12 h")
-                }
-            }
-        }
-        item { NoteSection(repo, date, entry.note) }
+        item { DayEditor(repo, date, entry, habits) }
         item { Spacer(Modifier.height(12.dp)) }
+    }
+}
+
+/** The editable part of a day: habits, rest day, sleep and the note. Used by Today and by an unlocked past day. */
+@Composable
+fun DayEditor(repo: Repository, date: LocalDate, entry: DayEntry, habits: List<Habit>) {
+    Column {
+        Section("Habits", trailing = "${entry.done.size} of ${habits.size}") {
+            if (habits.isEmpty()) Hint("Add habits in Setup.")
+            habits.chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth()) {
+                    pair.forEach { h ->
+                        HabitRow(h, h.id in entry.done, Modifier.weight(1f)) { repo.toggleHabit(date, h.id) }
+                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+        Section("Rest day") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Hint("A planned recovery day counts as a step.", Modifier.weight(1f))
+                Switch(
+                    checked = entry.rest, onCheckedChange = { repo.setRest(date, it) },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Astra.Rest, uncheckedTrackColor = Astra.Bg),
+                )
+            }
+        }
+        Section("Sleep", trailing = entry.sleep?.let { "${fmtHours(it)} h" } ?: "Not logged") {
+            Slider(
+                value = entry.sleep ?: 7f,
+                onValueChange = { repo.setSleep(date, (it * 2).roundToInt() / 2f) },
+                valueRange = 3f..12f,
+                steps = 17,
+                colors = SliderDefaults.colors(thumbColor = Astra.Ink, activeTrackColor = Astra.Ink, inactiveTrackColor = Astra.Line),
+            )
+            Row {
+                Hint("3 h")
+                Spacer(Modifier.weight(1f))
+                if (entry.sleep != null) {
+                    Text(
+                        "Clear", color = Astra.Muted, fontSize = 13.sp,
+                        modifier = Modifier.clickable { repo.setSleep(date, null) },
+                    )
+                    Spacer(Modifier.weight(1f))
+                }
+                Hint("12 h")
+            }
+        }
+        NoteSection(repo, date, entry.note)
     }
 }
 
