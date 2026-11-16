@@ -48,6 +48,11 @@ import com.adastra.app.ui.DayPagesScreen
 import com.adastra.app.ui.GridScreen
 import com.adastra.app.ui.PageTurner
 import com.adastra.app.ui.SettingsScreen
+import com.adastra.app.ui.NewsScreen
+import com.adastra.app.news.NewsRepository
+import com.adastra.app.notify.NewsAlarm
+import android.content.Intent
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.ui.unit.dp
 import com.adastra.app.ui.TodayScreen
 import com.adastra.app.ui.WeekScreen
@@ -55,20 +60,32 @@ import com.adastra.app.ui.WordsScreen
 import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
+    /** A tab a notification asked to open (consumed once shown). */
+    private val openTab = mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        openTab.value = intent.getStringExtra(NewsAlarm.EXTRA_OPEN_TAB)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
-        val repo = (application as AdAstraApp).repo
+        val app = application as AdAstraApp
+        val repo = app.repo
         Reminder.schedule(this, repo.data.value.settings)
-        setContent { AstraTheme { AppRoot(repo) } }
+        NewsAlarm.schedule(this, repo.data.value.settings)
+        openTab.value = intent?.getStringExtra(NewsAlarm.EXTRA_OPEN_TAB)
+        setContent { AstraTheme { AppRoot(repo, app.news, openTab.value) { openTab.value = null } } }
     }
 }
 
 enum class Tab(val label: String, val icon: ImageVector) {
     Today("Today", Icons.Filled.CheckCircle),
+    News("News", Icons.Filled.Notifications),
     Grid("Grid", Icons.Filled.DateRange),
     Week("Week", Icons.AutoMirrored.Filled.List),
     Words("Words", Icons.Filled.Create),
@@ -76,8 +93,12 @@ enum class Tab(val label: String, val icon: ImageVector) {
 }
 
 @Composable
-fun AppRoot(repo: Repository) {
+fun AppRoot(repo: Repository, news: NewsRepository, requestedTab: String?, onTabOpened: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(Tab.Today) }
+    LaunchedEffect(requestedTab) {
+        Tab.entries.firstOrNull { it.name == requestedTab }?.let { tab = it }
+        if (requestedTab != null) onTabOpened()
+    }
     // A past day opened from the Grid as a read-only page (null = none open).
     var openDay by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = openDay != null) { openDay = null }
@@ -127,6 +148,7 @@ fun AppRoot(repo: Repository) {
                     PageTurner(tab, order = { it.ordinal }) { t ->
                         when (t) {
                             Tab.Today -> TodayScreen(repo)
+                            Tab.News -> NewsScreen(news)
                             Tab.Grid -> GridScreen(repo) { openDay = it.toString() }
                             Tab.Week -> WeekScreen(repo)
                             Tab.Words -> WordsScreen(repo)

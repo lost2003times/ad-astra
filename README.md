@@ -11,6 +11,7 @@ The rule is simple: **never a zero day.** You don't have to do everything. One h
 | Tab | What it does |
 | --- | --- |
 | **Today** | The evening check-in. Tick habits, mark a rest day, log last night's sleep and write one line about the day. Shows your streak of days without a zero, how today compares with yesterday, and one of your own lines. Only today can be edited. |
+| **News** | The morning's top 5 cyber security stories from BleepingComputer, The Hacker News, SecurityWeek, Krebs on Security, Dark Reading, The Record and Help Net Security. Stories rank higher when several outlets cover them, when they're recent, and when they mention actively exploited bugs, zero-days or breaches. Tap a story to read it on the site. A notification with the top story arrives each morning (8:00 AM by default). |
 | **Grid** | A month at a glance, laid out like the notebook. Days run down the rows, habits run across the columns (with vertical labels), and sleep hours sit in the last column. Above it is the month's sleep curve. Tap a day to read it as a page, then swipe to turn to the next or previous day. Past days are read-only unless you hold the lock on a day page, which unlocks that one day for editing. |
 | **Week** | The weekly review. Shows days without a zero, a 7-day row of squares, check-ins, average sleep and rest days. Then "What went well" comes first, then "What to work on", then each habit's 7 days compared with last week. You also set one focus for next week, which appears on Today. |
 | **Words** | Your mantras and saved journal lines. They appear on Today and in the evening reminder. |
@@ -24,7 +25,7 @@ The rule is simple: **never a zero day.** You don't have to do everything. One h
 
 ## Privacy
 
-All data lives in one JSON file in the app's private storage on the phone (`files/adastra.json`). There's no account, no network access and no analytics. This repository contains only the app's code, not anyone's tracking data.
+All your data lives in one JSON file in the app's private storage on the phone (`files/adastra.json`). There's no account and no analytics. The only network access is downloading the public news feeds listed above, directly from each site; nothing about you is sent. This repository contains only the app's code, not anyone's tracking data.
 
 ## Tech
 
@@ -47,6 +48,8 @@ app/src/main/java/com/adastra/app/
   ui/Theme.kt            Colors, type and shared pieces (Section, CheckSquare, sideways text)
   ui/PageTurn.kt         The page-turn animation
   ui/DayPagesScreen.kt   Read-only pages for past days
+  news/News.kt           Feed reader, story ranking and the saved briefing
+  notify/NewsAlarm.kt    Morning news fetch and notification
   ui/*Screen.kt          One file per tab
 ```
 

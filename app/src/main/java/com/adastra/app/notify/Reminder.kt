@@ -79,7 +79,9 @@ class ReminderReceiver : BroadcastReceiver() {
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            Reminder.schedule(context, (context.applicationContext as AdAstraApp).repo.data.value.settings)
+            val settings = (context.applicationContext as AdAstraApp).repo.data.value.settings
+            Reminder.schedule(context, settings)
+            NewsAlarm.schedule(context, settings)
         }
     }
 }

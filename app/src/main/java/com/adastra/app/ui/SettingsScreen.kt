@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.adastra.app.data.Habit
 import com.adastra.app.data.Repository
+import com.adastra.app.notify.NewsAlarm
 import com.adastra.app.notify.Reminder
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -92,6 +93,31 @@ fun SettingsScreen(repo: Repository) {
                             reschedule()
                         }, s.reminderHour, s.reminderMinute, false).show()
                     }) { Text("Remind me at $time", color = Astra.Ink, fontSize = 15.sp) }
+                }
+            }
+        }
+        item {
+            Section("Morning security news") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Hint("Each morning the app gathers the top cyber security stories and notifies you with the biggest one.", Modifier.weight(1f))
+                    Switch(
+                        checked = s.newsOn,
+                        onCheckedChange = { on ->
+                            repo.updateSettings { it.copy(newsOn = on) }
+                            NewsAlarm.schedule(ctx, repo.data.value.settings)
+                            if (on && Build.VERSION.SDK_INT >= 33) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        },
+                        colors = SwitchDefaults.colors(checkedTrackColor = Astra.Ink, uncheckedTrackColor = Astra.Bg),
+                    )
+                }
+                if (s.newsOn) {
+                    val time = LocalTime.of(s.newsHour, s.newsMinute).format(DateTimeFormatter.ofPattern("h:mm a"))
+                    TextButton(onClick = {
+                        TimePickerDialog(ctx, { _, h, m ->
+                            repo.updateSettings { it.copy(newsHour = h, newsMinute = m) }
+                            NewsAlarm.schedule(ctx, repo.data.value.settings)
+                        }, s.newsHour, s.newsMinute, false).show()
+                    }) { Text("Deliver at $time", color = Astra.Ink, fontSize = 15.sp) }
                 }
             }
         }
