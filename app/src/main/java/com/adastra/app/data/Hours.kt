@@ -8,6 +8,17 @@ import java.time.temporal.ChronoUnit
 const val KIND_STUDY = "study"
 const val KIND_SHIFT = "shift"
 
+/** Study and Shift habits log hours instead of a plain tick. */
+fun hourKind(h: Habit): String? = when {
+    h.id == "study" || h.name.trim().equals("study", true) -> KIND_STUDY
+    h.id == "shift" || h.name.trim().equals("shift", true) || h.name.trim().equals("work", true) -> KIND_SHIFT
+    else -> null
+}
+
+/** Minutes of one kind logged on one app day (timed and typed). */
+fun dayMinutes(d: AppData, kind: String, date: LocalDate): Int =
+    d.sessions.filter { it.kind == kind && it.date == date.toString() }.sumOf { it.minutes }
+
 /** The app day (4 AM to 4 AM) an instant falls on. */
 fun appDayOf(millis: Long): LocalDate =
     Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDateTime().minusHours(DAY_STARTS_AT_HOUR).toLocalDate()

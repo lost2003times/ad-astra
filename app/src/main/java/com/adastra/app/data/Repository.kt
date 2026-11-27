@@ -26,6 +26,9 @@ class Repository(private val file: File) {
 
     init {
         if (_data.value.since == null) update { it.copy(since = appToday().toString()) }
+        // Shifts are logged from the habit list, so make sure there is a Shift habit.
+        if (_data.value.habits.none { hourKind(it) == KIND_SHIFT })
+            update { it.copy(habits = it.habits + Habit("shift", "Shift", "⏱")) }
         if (_data.value.goals.yearStart == null) update { it.copy(goals = it.goals.copy(yearStart = appToday().toString())) }
     }
 
@@ -115,7 +118,7 @@ class Repository(private val file: File) {
         val t = _data.value.timer ?: return null
         val minutes = ((System.currentTimeMillis() - t.start) / 60_000).toInt().coerceAtMost(16 * 60)
         val s = if (minutes >= 1) Session(UUID.randomUUID().toString(), t.kind, appDayOf(t.start).toString(), t.start, minutes) else null
-        update { d -> withStudyTick(d.copy(timer = null, sessions = if (s != null) d.sessions + s else d.sessions), s) }
+        update { d -> withHourTick(d.copy(timer = null, sessions = if (s != null) d.sessions + s else d.sessions), s) }
         return s
     }
 
@@ -125,17 +128,36 @@ class Repository(private val file: File) {
         if (minutes <= 0) return
         val start = date.atTime(12, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
         val s = Session(UUID.randomUUID().toString(), kind, date.toString(), start, minutes, manual = true)
-        update { d -> withStudyTick(d.copy(sessions = d.sessions + s), s) }
+        update { d -> withHourTick(d.copy(sessions = d.sessions + s), s) }
     }
 
     fun deleteSession(id: String) = update { d -> d.copy(sessions = d.sessions.filterNot { it.id == id }) }
 
     fun setGoals(f: (Goals) -> Goals) = update { it.copy(goals = f(it.goals)) }
 
-    /** Studying counts as a step: tick the Study habit for that day if there is one. */
-    private fun withStudyTick(d: AppData, s: Session?): AppData {
-        if (s == null || s.kind != KIND_STUDY) return d
-        val habit = d.habits.firstOrNull { !it.archived && (it.id == "study" || it.name.equals("study", true)) } ?: return d
+    /**
+     * Sets the day's total hours for study or shift, as typed on the habit list.
+     * Timed sessions stay; the typed amount replaces earlier typed entries for that day.
+     */
+    fun setDayHours(kind: String, date: LocalDate, minutes: Int) = update { d ->
+        val key = date.toString()
+        val kept = d.sessions.filterNot { it.kind == kind && it.date == key && it.manual }
+        val timed = kept.filter { it.kind == kind && it.date == key }.sumOf { it.minutes }
+        val extra = minutes - timed
+        val start = date.atTime(12, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val sessions = if (extra > 0) kept + Session(UUID.randomUUID().toString(), kind, key, start, extra, manual = true) else kept
+        val total = sessions.filter { it.kind == kind && it.date == key }.sumOf { it.minutes }
+        val habit = d.habits.firstOrNull { !it.archived && hourKind(it) == kind }
+        val e = d.days[key] ?: DayEntry(key)
+        val days = if (habit == null) d.days
+            else d.days + (key to e.copy(done = if (total > 0) e.done + habit.id else e.done - habit.id))
+        d.copy(sessions = sessions, days = days)
+    }
+
+    /** Logged hours count as a step: tick the matching Study or Shift habit for that day. */
+    private fun withHourTick(d: AppData, s: Session?): AppData {
+        if (s == null) return d
+        val habit = d.habits.firstOrNull { !it.archived && hourKind(it) == s.kind } ?: return d
         val e = d.days[s.date] ?: DayEntry(s.date)
         return d.copy(days = d.days + (s.date to e.copy(done = e.done + habit.id)))
     }

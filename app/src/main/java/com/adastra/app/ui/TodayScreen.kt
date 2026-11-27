@@ -49,6 +49,13 @@ import com.adastra.app.data.Stats
 import com.adastra.app.data.appToday
 import com.adastra.app.data.Word
 import com.adastra.app.data.fmtHours
+import com.adastra.app.data.fmtDuration
+import com.adastra.app.data.hourKind
+import com.adastra.app.data.dayMinutes
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -88,14 +95,26 @@ fun TodayScreen(repo: Repository) {
 @Composable
 fun DayEditor(repo: Repository, date: LocalDate, entry: DayEntry, habits: List<Habit>) {
     var history by remember { mutableStateOf<Habit?>(null) }
+    var asking by remember { mutableStateOf<Habit?>(null) }
+    val data by repo.data.collectAsStateWithLifecycle()
     history?.let { h -> HabitHistory(repo, h) { history = null } }
+    asking?.let { h ->
+        val kind = hourKind(h)!!
+        HoursAsk(h.name, date, dayMinutes(data, kind, date), onDismiss = { asking = null }) { m ->
+            repo.setDayHours(kind, date, m); asking = null
+        }
+    }
     Column {
         Section("Habits", trailing = "${entry.done.size} of ${habits.size}") {
             if (habits.isEmpty()) Hint("Add habits in Setup.") else Hint("Hold a habit to see every day you ticked it.", Modifier.padding(bottom = 4.dp))
             habits.chunked(2).forEach { pair ->
                 Row(Modifier.fillMaxWidth()) {
                     pair.forEach { h ->
-                        HabitRow(h, h.id in entry.done, Modifier.weight(1f), onHold = { history = h }) { repo.toggleHabit(date, h.id) }
+                        val kind = hourKind(h)
+                        val hours = kind?.let { dayMinutes(data, it, date) / 60f }
+                        HabitRow(h, h.id in entry.done, Modifier.weight(1f), hours, onHold = { history = h }) {
+                            if (kind != null) asking = h else repo.toggleHabit(date, h.id)
+                        }
                     }
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
@@ -201,7 +220,7 @@ private fun Streak(streak: Int, best: Int, message: String, warn: Boolean) {
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun HabitRow(h: Habit, on: Boolean, modifier: Modifier, onHold: () -> Unit, onToggle: () -> Unit) {
+private fun HabitRow(h: Habit, on: Boolean, modifier: Modifier, hours: Float?, onHold: () -> Unit, onToggle: () -> Unit) {
     Row(
         modifier
             .height(50.dp)
@@ -213,8 +232,57 @@ private fun HabitRow(h: Habit, on: Boolean, modifier: Modifier, onHold: () -> Un
         CheckSquare(on)
         Spacer(Modifier.width(12.dp))
         Text(h.name, color = Astra.Text, fontSize = 15.sp, maxLines = 1)
+        if (hours != null && hours > 0f) {
+            Text("  ${fmtDuration(hours)}", color = Astra.Signal, fontSize = 14.sp, maxLines = 1, style = Numbers)
+        }
     }
 }
+
+/** Asks how many hours of study or shift the day had. */
+@Composable
+private fun HoursAsk(name: String, date: LocalDate, current: Int, onDismiss: () -> Unit, onSave: (Int) -> Unit) {
+    var text by remember { mutableStateOf(if (current > 0) fmtNum(current / 60f) else "") }
+    val minutes = text.replace(',', '.').toFloatOrNull()?.let { (it * 60).roundToInt() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("How many hours of ${name.lowercase()}?") },
+        text = {
+            Column {
+                Hint(if (date == appToday()) "Total for today." else "Total for ${date.format(DateTimeFormatter.ofPattern("EEE d MMM"))}.")
+                Spacer(Modifier.height(10.dp))
+                listOf(listOf(0.5f, 1f, 1.5f, 2f), listOf(3f, 4f, 6f, 8f)).forEach { row ->
+                    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                        row.forEach { v ->
+                            val on = minutes == (v * 60).roundToInt()
+                            Box(
+                                Modifier.weight(1f).padding(horizontal = 3.dp).height(40.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (on) Astra.Ink else Astra.Empty)
+                                    .clickable { text = fmtNum(v) },
+                                contentAlignment = Alignment.Center,
+                            ) { Text("${fmtNum(v)} h", color = if (on) Color.White else Astra.Text, fontSize = 15.sp) }
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    text, { text = it }, label = { Text("Hours") }, singleLine = true, colors = fieldColors(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = minutes != null && minutes in 0..(20 * 60), onClick = { onSave(minutes ?: 0) }) { Text("Save") }
+        },
+        dismissButton = {
+            Row {
+                if (current > 0) TextButton(onClick = { onSave(0) }) { Text("Clear", color = Astra.Muted) }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
+}
+
+private fun fmtNum(v: Float): String = if (v % 1f == 0f) v.toInt().toString() else String.format("%.1f", v)
 
 @Composable
 private fun NoteSection(repo: Repository, date: LocalDate, note: String) {
