@@ -40,6 +40,28 @@ data class Settings(
     val newsMinute: Int = 0,
 )
 
+/** A block of logged time: "study" or "shift". */
+@Serializable
+data class Session(
+    val id: String,
+    val kind: String,
+    val date: String,                 // app day (4 AM rollover) the session started on
+    val start: Long,                  // epoch millis
+    val minutes: Int,
+    val manual: Boolean = false,      // typed in rather than timed
+)
+
+@Serializable
+data class RunningTimer(val kind: String, val start: Long)
+
+@Serializable
+data class Goals(
+    val studyYear: Int = 1000,
+    val studyWeek: Int = 20,
+    val shiftWeek: Int = 20,
+    val yearStart: String? = null,    // day the 1000-hour year began
+)
+
 @Serializable
 data class AppData(
     val habits: List<Habit> = emptyList(),
@@ -48,6 +70,9 @@ data class AppData(
     val settings: Settings = Settings(),
     val focus: Map<String, String> = emptyMap(),   // week start (Monday) -> focus text
     val since: String? = null,                     // first day of using the app
+    val sessions: List<Session> = emptyList(),
+    val timer: RunningTimer? = null,
+    val goals: Goals = Goals(),
 )
 
 object Defaults {

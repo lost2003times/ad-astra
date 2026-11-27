@@ -68,6 +68,8 @@ fun GridScreen(repo: Repository, onOpenDay: (LocalDate) -> Unit) {
     val elapsed = days.count { Stats.counts(data, it, today) }
     val nonZero = days.count { Stats.counts(data, it, today) && Stats.isStep(data, it) }
     val hScroll = rememberScrollState()
+    var history by remember { mutableStateOf<Habit?>(null) }
+    history?.let { h -> HabitHistory(repo, h) { history = null } }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)) {
         item {
@@ -85,7 +87,7 @@ fun GridScreen(repo: Repository, onOpenDay: (LocalDate) -> Unit) {
             }
         }
         item { SleepChart(data, days, today) }
-        item { Spacer(Modifier.height(16.dp)); GridHeader(habits, hScroll) }
+        item { Spacer(Modifier.height(16.dp)); GridHeader(habits, hScroll) { history = it } }
         items(days, key = { it.toString() }) { d -> GridRow(data, habits, d, today, hScroll, onOpenDay) }
         item { Hint("Tap a day to read its page. Blue marks a rest day.", Modifier.padding(top = 14.dp)) }
     }
@@ -103,11 +105,11 @@ private fun SideLabel(text: String, width: androidx.compose.ui.unit.Dp) {
 }
 
 @Composable
-private fun GridHeader(habits: List<Habit>, hScroll: ScrollState) {
+private fun GridHeader(habits: List<Habit>, hScroll: ScrollState, onHabit: (Habit) -> Unit) {
     Row {
         Spacer(Modifier.width(DAY_COL))
         Row(Modifier.horizontalScroll(hScroll)) {
-            habits.forEach { SideLabel(it.name, CELL) }
+            habits.forEach { h -> Box(Modifier.clickable { onHabit(h) }) { SideLabel(h.name, CELL) } }
             SideLabel("Sleep", SLEEP_COL)
         }
     }

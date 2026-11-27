@@ -2,6 +2,7 @@ package com.adastra.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -86,13 +87,15 @@ fun TodayScreen(repo: Repository) {
 /** The editable part of a day: habits, rest day, sleep and the note. Used by Today and by an unlocked past day. */
 @Composable
 fun DayEditor(repo: Repository, date: LocalDate, entry: DayEntry, habits: List<Habit>) {
+    var history by remember { mutableStateOf<Habit?>(null) }
+    history?.let { h -> HabitHistory(repo, h) { history = null } }
     Column {
         Section("Habits", trailing = "${entry.done.size} of ${habits.size}") {
-            if (habits.isEmpty()) Hint("Add habits in Setup.")
+            if (habits.isEmpty()) Hint("Add habits in Setup.") else Hint("Hold a habit to see every day you ticked it.", Modifier.padding(bottom = 4.dp))
             habits.chunked(2).forEach { pair ->
                 Row(Modifier.fillMaxWidth()) {
                     pair.forEach { h ->
-                        HabitRow(h, h.id in entry.done, Modifier.weight(1f)) { repo.toggleHabit(date, h.id) }
+                        HabitRow(h, h.id in entry.done, Modifier.weight(1f), onHold = { history = h }) { repo.toggleHabit(date, h.id) }
                     }
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
@@ -196,13 +199,14 @@ private fun Streak(streak: Int, best: Int, message: String, warn: Boolean) {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun HabitRow(h: Habit, on: Boolean, modifier: Modifier, onToggle: () -> Unit) {
+private fun HabitRow(h: Habit, on: Boolean, modifier: Modifier, onHold: () -> Unit, onToggle: () -> Unit) {
     Row(
         modifier
             .height(50.dp)
             .clip(RoundedCornerShape(6.dp))
-            .clickable(onClick = onToggle)
+            .combinedClickable(onLongClick = onHold, onClick = onToggle)
             .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

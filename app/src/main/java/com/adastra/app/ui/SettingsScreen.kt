@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -55,6 +57,8 @@ fun SettingsScreen(repo: Repository) {
     var editing by remember { mutableStateOf<Habit?>(null) }
     var adding by remember { mutableStateOf(false) }
     var hiding by remember { mutableStateOf<Habit?>(null) }
+    var deleting by remember { mutableStateOf<Habit?>(null) }
+    var history by remember { mutableStateOf<Habit?>(null) }
     val active = data.habits.filter { !it.archived }
     val archived = data.habits.filter { it.archived }
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -123,14 +127,14 @@ fun SettingsScreen(repo: Repository) {
         }
         item {
             Section("Habits", trailing = "${active.size}") {
-                Hint("Hidden habits keep their history and can be restored.")
+                Hint("Tap a habit to see every day you ticked it. Hide keeps its history; delete removes it for good.")
                 TextButton(onClick = { adding = true }) { Text("Add a habit", color = Astra.Ink, fontSize = 15.sp) }
             }
         }
         itemsIndexed(active, key = { _, h -> h.id }) { i, h ->
             HorizontalDivider(color = Astra.Line.copy(alpha = 0.6f))
             Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(h.name, color = Astra.Text, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                Text(h.name, color = Astra.Text, fontSize = 16.sp, modifier = Modifier.weight(1f).clickable { history = h })
                 IconButton(onClick = { repo.moveHabit(h.id, -1) }, enabled = i > 0) {
                     Icon(Icons.Filled.KeyboardArrowUp, "Move up", tint = if (i > 0) Astra.Muted else Astra.Line)
                 }
@@ -139,14 +143,16 @@ fun SettingsScreen(repo: Repository) {
                 }
                 IconButton(onClick = { editing = h }) { Icon(Icons.Filled.Edit, "Rename", tint = Astra.Muted) }
                 IconButton(onClick = { hiding = h }) { Icon(Icons.Filled.Close, "Hide", tint = Astra.Muted) }
+                IconButton(onClick = { deleting = h }) { Icon(Icons.Filled.Delete, "Delete", tint = Astra.Muted) }
             }
         }
         if (archived.isNotEmpty()) {
             item { Section("Hidden habits") {} }
             itemsIndexed(archived, key = { _, h -> "a" + h.id }) { _, h ->
                 Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(h.name, color = Astra.Muted, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                    Text(h.name, color = Astra.Muted, fontSize = 15.sp, modifier = Modifier.weight(1f).clickable { history = h })
                     TextButton(onClick = { repo.setArchived(h.id, false) }) { Text("Restore", color = Astra.Ink) }
+                    IconButton(onClick = { deleting = h }) { Icon(Icons.Filled.Delete, "Delete", tint = Astra.Muted) }
                 }
             }
         }
@@ -175,6 +181,19 @@ fun SettingsScreen(repo: Repository) {
                 }) { Text(if (h == null) "Add" else "Save") }
             },
             dismissButton = { TextButton(onClick = { adding = false; editing = null }) { Text("Cancel") } },
+        )
+    }
+
+    history?.let { h -> HabitHistory(repo, h) { history = null } }
+
+    deleting?.let { h ->
+        val ticks = data.days.values.count { h.id in it.done }
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("Delete ${h.name}?") },
+            text = { Text("This removes the habit and its $ticks ${if (ticks == 1) "tick" else "ticks"} from every day. It can't be undone. To keep the history, hide it instead.") },
+            confirmButton = { TextButton(onClick = { repo.deleteHabit(h.id); deleting = null }) { Text("Delete", color = Astra.Signal) } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Keep") } },
         )
     }
 

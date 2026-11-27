@@ -57,6 +57,8 @@ import androidx.compose.ui.unit.dp
 import com.adastra.app.ui.TodayScreen
 import com.adastra.app.ui.WeekScreen
 import com.adastra.app.ui.WordsScreen
+import com.adastra.app.ui.HoursScreen
+import androidx.compose.material.icons.filled.Star
 import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
@@ -85,6 +87,7 @@ class MainActivity : ComponentActivity() {
 
 enum class Tab(val label: String, val icon: ImageVector) {
     Today("Today", Icons.Filled.CheckCircle),
+    Hours("Hours", Icons.Filled.Star),
     News("News", Icons.Filled.Notifications),
     Grid("Grid", Icons.Filled.DateRange),
     Week("Week", Icons.AutoMirrored.Filled.List),
@@ -148,6 +151,7 @@ fun AppRoot(repo: Repository, news: NewsRepository, requestedTab: String?, onTab
                     PageTurner(tab, order = { it.ordinal }) { t ->
                         when (t) {
                             Tab.Today -> TodayScreen(repo)
+                            Tab.Hours -> HoursScreen(repo)
                             Tab.News -> NewsScreen(news)
                             Tab.Grid -> GridScreen(repo) { openDay = it.toString() }
                             Tab.Week -> WeekScreen(repo)

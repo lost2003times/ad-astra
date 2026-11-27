@@ -11,11 +11,12 @@ The rule is simple: **never a zero day.** You don't have to do everything. One h
 | Tab | What it does |
 | --- | --- |
 | **Today** | The evening check-in. Tick habits, mark a rest day, log last night's sleep and write one line about the day. Shows your streak of days without a zero, how today compares with yesterday, and one of your own lines. Only today can be edited. |
+| **Hours** | The 1,000-hours-a-year study goal, with 20 h of study and 20 h of shifts a week (all adjustable). Start a Study or Shift clock (it keeps running in a notification with a Stop button), or add time by hand. Shows the year's total against an even pace, this week's two goals, the last 8 weeks, and your phone use from the same data Digital Wellbeing uses: time per app, unlocks, phone use by hour and late at night, and phone use while the study clock was running. From those numbers it writes plain advice: what's working, where the time goes, and what each day needs from here. Logging study ticks the Study habit for that day. |
 | **News** | The morning's top 5 cyber security stories from BleepingComputer, The Hacker News, SecurityWeek, Krebs on Security, Dark Reading, The Record and Help Net Security. Stories rank higher when several outlets cover them, when they're recent, and when they mention actively exploited bugs, zero-days or breaches. Tap a story to read it on the site. A notification with the top story arrives each morning (8:00 AM by default). |
 | **Grid** | A month at a glance, laid out like the notebook. Days run down the rows, habits run across the columns (with vertical labels), and sleep hours sit in the last column. Above it is the month's sleep curve. Tap a day to read it as a page, then swipe to turn to the next or previous day. Past days are read-only unless you hold the lock on a day page, which unlocks that one day for editing. |
 | **Week** | The weekly review. Shows days without a zero, a 7-day row of squares, check-ins, average sleep and rest days. Then "What went well" comes first, then "What to work on", then each habit's 7 days compared with last week. You also set one focus for next week, which appears on Today. |
 | **Words** | Your mantras and saved journal lines. They appear on Today and in the evening reminder. |
-| **Setup** | Your name, the reminder time, and your habits: add, rename, reorder or hide them. Hidden habits keep their history. |
+| **Setup** | Your name, the reminder time, and your habits: add, rename, reorder or hide them. Hidden habits keep their history; deleting a habit removes it and its ticks. Tap a habit here (or its name in the Grid, or hold it on Today) to see every day you ticked it as a grid. |
 
 **Evening reminder.** If nothing is logged by the set time (9:30 PM by default), you get a notification with one of your own lines. It doesn't nag, and it doesn't show red marks.
 
@@ -25,7 +26,7 @@ The rule is simple: **never a zero day.** You don't have to do everything. One h
 
 ## Privacy
 
-All your data lives in one JSON file in the app's private storage on the phone (`files/adastra.json`). There's no account and no analytics. The only network access is downloading the public news feeds listed above, directly from each site; nothing about you is sent. This repository contains only the app's code, not anyone's tracking data.
+All your data lives in one JSON file in the app's private storage on the phone (`files/adastra.json`). There's no account and no analytics. Screen-time numbers are read on the phone through Android's usage access, which you switch on yourself, and are never stored or sent anywhere. The only network access is downloading the public news feeds listed above, directly from each site; nothing about you is sent. This repository contains only the app's code, not anyone's tracking data.
 
 ## Tech
 
@@ -50,6 +51,11 @@ app/src/main/java/com/adastra/app/
   ui/DayPagesScreen.kt   Read-only pages for past days
   news/News.kt           Feed reader, story ranking and the saved briefing
   notify/NewsAlarm.kt    Morning news fetch and notification
+  data/Hours.kt          Study and shift totals, pace and weekly numbers
+  usage/Usage.kt         Screen time per app from UsageStatsManager
+  usage/Advice.kt        The rules that turn the numbers into advice
+  notify/TimerNotice.kt  The running-clock notification and its Stop button
+  ui/HabitHistory.kt     The per-habit grid of ticked days
   ui/*Screen.kt          One file per tab
 ```
 
