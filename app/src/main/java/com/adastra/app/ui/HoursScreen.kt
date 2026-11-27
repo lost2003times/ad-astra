@@ -189,63 +189,6 @@ private fun Bar(frac: Float, color: Color, height: Dp = 10.dp) {
     BrushBar(frac, color, height = height)
 }
 
-/** Study focus: pick a length, the phone goes quiet, sound returns when it ends. */
-@Composable
-private fun FocusBlock(d: AppData, now: Long, ctx: android.content.Context, dnd: Boolean) {
-    val t = d.timer?.takeIf { it.end != null }
-    var minutes by remember { mutableIntStateOf(50) }
-    Column(
-        Modifier.fillMaxWidth().padding(vertical = 8.dp).clip(RoundedCornerShape(14.dp)).background(Astra.Surface).padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        if (t != null) {
-            val left = ((t.end!! - now) / 1000).coerceAtLeast(0)
-            Label("Studying · phone on Do Not Disturb", color = Astra.Signal)
-            Text(
-                "%d:%02d:%02d".format(left / 3600, (left / 60) % 60, left % 60),
-                color = Astra.Text, fontSize = 60.sp, lineHeight = 64.sp, style = Score,
-            )
-            val ends = Instant.ofEpochMilli(t.end).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("h:mm a"))
-            Hint("Sound comes back at $ends. You can close the app.")
-            Spacer(Modifier.height(12.dp))
-            OutlinedButton(onClick = { Focus.end(ctx, completed = false) }) { Text("End now", color = Astra.Muted) }
-        } else {
-            Label("Study timer")
-            Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.Bottom) {
-                Text(fmtMinutes(minutes), color = Astra.Text, fontSize = 60.sp, lineHeight = 64.sp, style = Score)
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(25, 50, 60, 90, 120).forEach { m ->
-                    Choice(fmtMinutes(m), minutes == m, Astra.Ink, Modifier.weight(1f)) { minutes = m }
-                }
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Choice("− 5 min", false, Astra.Ink, Modifier.weight(1f)) { minutes = (minutes - 5).coerceAtLeast(5) }
-                Choice("+ 5 min", false, Astra.Ink, Modifier.weight(1f)) { minutes = (minutes + 5).coerceAtMost(8 * 60) }
-            }
-            Spacer(Modifier.height(14.dp))
-            Button(
-                onClick = { Focus.start(ctx, minutes) },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Astra.Text, contentColor = Astra.Bg),
-            ) { Text("Start · phone goes silent", fontWeight = FontWeight.Bold) }
-            if (!dnd) {
-                Hint(
-                    "To silence the phone, Android needs you to allow Do Not Disturb access for Ad Astra once.",
-                    Modifier.padding(top = 10.dp),
-                )
-                TextButton(onClick = { ctx.startActivity(Focus.dndSettingsIntent()) }) { Text("Allow Do Not Disturb access", color = Astra.Signal) }
-            } else Hint("Uses your Do Not Disturb exceptions, so alarms and starred contacts still get through. Log the hours on Today.", Modifier.padding(top = 10.dp))
-        }
-    }
-}
-
-private fun fmtMinutes(m: Int): String = when {
-    m < 60 -> "$m min"
-    m % 60 == 0 -> "${m / 60} h"
-    else -> "${m / 60} h ${m % 60}"
-}
-
 @Composable
 private fun YearBlock(h: HoursSummary) {
     val fmt = DateTimeFormatter.ofPattern("d MMM yyyy")

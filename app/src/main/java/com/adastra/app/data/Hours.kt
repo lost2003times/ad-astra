@@ -7,6 +7,7 @@ import java.time.temporal.ChronoUnit
 
 const val KIND_STUDY = "study"
 const val KIND_SHIFT = "shift"
+const val KIND_BREAK = "break"
 
 /** Study and Shift habits log hours instead of a plain tick. */
 fun hourKind(h: Habit): String? = when {

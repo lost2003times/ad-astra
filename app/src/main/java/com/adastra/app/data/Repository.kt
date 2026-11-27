@@ -125,9 +125,9 @@ class Repository(private val file: File) {
     fun discardTimer() = update { it.copy(timer = null) }
 
     /** Starts a study focus block of [minutes]. */
-    fun startFocus(minutes: Int, prevFilter: Int): RunningTimer {
+    fun startFocus(minutes: Int, prevFilter: Int, kind: String = KIND_STUDY): RunningTimer {
         val now = System.currentTimeMillis()
-        val t = RunningTimer(KIND_STUDY, now, now + minutes * 60_000L, prevFilter)
+        val t = RunningTimer(kind, now, now + minutes * 60_000L, prevFilter)
         update { it.copy(timer = t) }
         return t
     }
@@ -138,7 +138,8 @@ class Repository(private val file: File) {
         val stop = minOf(System.currentTimeMillis(), t.end ?: Long.MAX_VALUE)
         val minutes = ((stop - t.start) / 60_000).toInt()
         update { d ->
-            d.copy(timer = null, focusRuns = if (minutes >= 1) (d.focusRuns + FocusRun(t.start, stop)).takeLast(500) else d.focusRuns)
+            val keep = minutes >= 1 && t.kind == KIND_STUDY
+            d.copy(timer = null, focusRuns = if (keep) (d.focusRuns + FocusRun(t.start, stop)).takeLast(500) else d.focusRuns)
         }
         return minutes
     }

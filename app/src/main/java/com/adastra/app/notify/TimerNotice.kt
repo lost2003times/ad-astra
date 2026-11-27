@@ -16,6 +16,8 @@ import com.adastra.app.AdAstraApp
 import com.adastra.app.MainActivity
 import com.adastra.app.R
 import com.adastra.app.data.RunningTimer
+import com.adastra.app.data.KIND_BREAK
+import com.adastra.app.data.KIND_STUDY
 import com.adastra.app.data.appDayOf
 import com.adastra.app.data.fmtDuration
 
@@ -35,17 +37,18 @@ object Focus {
     fun dndSettingsIntent(): Intent =
         Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-    fun start(ctx: Context, minutes: Int) {
+    fun start(ctx: Context, minutes: Int, kind: String = KIND_STUDY) {
         val app = ctx.applicationContext as AdAstraApp
         if (app.repo.data.value.timer != null) end(ctx, completed = false)
         val nm = ctx.getSystemService(NotificationManager::class.java)
         var prev = 0
-        if (hasDndAccess(ctx)) {
+        // Only study goes quiet; a break keeps sound on.
+        if (kind == KIND_STUDY && hasDndAccess(ctx)) {
             prev = nm.currentInterruptionFilter
             // Priority-only follows your own Do Not Disturb exceptions (alarms, starred contacts).
             nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY)
         }
-        val t = app.repo.startFocus(minutes, prev)
+        val t = app.repo.startFocus(minutes, prev, kind)
         scheduleEnd(ctx, t.end ?: return)
     }
 
@@ -86,6 +89,19 @@ object Focus {
     private fun notifyDone(ctx: Context, t: RunningTimer, minutes: Int) {
         val nm = NotificationManagerCompat.from(ctx)
         if (!nm.areNotificationsEnabled()) return
+        if (t.kind == KIND_BREAK) {
+            nm.notify(
+                22,
+                NotificationCompat.Builder(ctx, TimerNotice.CHANNEL_DONE)
+                    .setSmallIcon(R.drawable.ic_star)
+                    .setContentTitle("Break's over")
+                    .setContentText("${minutes} min done. Back to it.")
+                    .setContentIntent(TimerNotice.openHours(ctx))
+                    .setAutoCancel(true)
+                    .build(),
+            )
+            return
+        }
         val log = PendingIntent.getBroadcast(
             ctx, 8,
             Intent(ctx, FocusReceiver::class.java).setAction(ACTION_LOG)
@@ -144,8 +160,8 @@ object TimerNotice {
         )
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_star)
-            .setContentTitle("Studying · phone on Do Not Disturb")
-            .setContentText("Sound comes back when the timer ends.")
+            .setContentTitle(if (timer.kind == KIND_BREAK) "On a break" else "Studying · phone on Do Not Disturb")
+            .setContentText(if (timer.kind == KIND_BREAK) "You'll get a nudge when it's over." else "Sound comes back when the timer ends.")
             .setWhen(timer.end)
             .setUsesChronometer(true)
             .setChronometerCountDown(true)

@@ -344,7 +344,7 @@ private fun HoursSheet(name: String, shift: Boolean, date: LocalDate, current: I
                 Text(fmtNum(minutes / 60f), color = if (shift) Astra.Signal else Astra.Text, fontSize = 76.sp, lineHeight = 76.sp, style = Score)
                 Text(" h", color = Astra.Muted, fontSize = 24.sp, modifier = Modifier.padding(bottom = 12.dp))
             }
-            listOf(listOf(0.5f, 1f, 2f, 3f), listOf(4f, 5f, 6f, 8f)).forEach { row ->
+            listOf(listOf(1f, 2f, 3f, 4f), listOf(5f, 6f, 8f, 10f)).forEach { row ->
                 Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     row.forEach { v ->
                         val on = minutes == (v * 60).roundToInt()
@@ -358,7 +358,7 @@ private fun HoursSheet(name: String, shift: Boolean, date: LocalDate, current: I
                 }
             }
             Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(-30 to "− ½", 30 to "+ ½").forEach { (step, label) ->
+                listOf(-60 to "− 1", -30 to "− ½", 30 to "+ ½", 60 to "+ 1").forEach { (step, label) ->
                     Box(
                         Modifier.weight(1f).height(44.dp).clip(CircleShape).background(Astra.Empty)
                             .clickable { minutes = (minutes + step).coerceIn(0, 20 * 60) },
