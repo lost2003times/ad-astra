@@ -199,55 +199,8 @@ fun DayEditor(repo: Repository, date: LocalDate, entry: DayEntry, habits: List<H
         }
         if (habits.isEmpty()) Hint("Add habits in Setup.", Modifier.padding(top = 8.dp))
         else {
-            val scroll = rememberScrollState()
-            Column(Modifier.padding(top = 6.dp).horizontalScroll(scroll)) {
-                // Headings, written sideways like the notebook columns. Tap one to see its history.
-                Row {
-                    Spacer(Modifier.width(DAY_COL))
-                    habits.forEach { h ->
-                        Box(Modifier.width(CELL).height(HEAD_H).clickable { history = h }, contentAlignment = Alignment.BottomCenter) {
-                            Text(
-                                h.name, color = Astra.Muted, fontSize = 13.sp, maxLines = 1, softWrap = false,
-                                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 6.dp).sideways(),
-                            )
-                        }
-                    }
-                    Box(Modifier.width(CELL + 8.dp).height(HEAD_H), contentAlignment = Alignment.BottomCenter) {
-                        Text("Sleep", color = Astra.Muted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 6.dp).sideways())
-                    }
-                }
-                (ROW_DAYS downTo 0).forEach { back ->
-                    val day = date.minusDays(back.toLong())
-                    val e = data.days[day.toString()] ?: DayEntry(day.toString())
-                    val live = back == 0
-                    Row(
-                        Modifier.height(if (live) CELL + 8.dp else CELL).alpha(if (live) 1f else 0.45f),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.width(DAY_COL)) {
-                            Text(day.format(DateTimeFormatter.ofPattern("EEE")), color = if (live) Astra.Signal else Astra.Muted, fontSize = 12.sp)
-                            Text("${day.dayOfMonth}", color = Astra.Text, fontSize = if (live) 18.sp else 14.sp, style = Score)
-                        }
-                        habits.forEach { h ->
-                            val kind = hourKind(h)
-                            val hours = kind?.let { dayMinutes(data, it, day) / 60f } ?: 0f
-                            BookCell(
-                                on = h.id in e.done,
-                                hours = if (kind != null && hours > 0f) hours else null,
-                                fill = if (kind == KIND_SHIFT) Astra.Signal else Astra.Ink,
-                                rest = e.rest && e.done.isEmpty(),
-                                big = live,
-                                modifier = if (!live) Modifier else Modifier.combinedClickable(
-                                    onLongClick = { history = h },
-                                    onClick = { if (kind != null) asking = h else repo.toggleHabit(date, h.id) },
-                                ),
-                            )
-                        }
-                        Box(Modifier.width(CELL + 8.dp), contentAlignment = Alignment.Center) {
-                            Text(e.sleep?.let { fmtHours(it) } ?: "·", color = if (live) Astra.Text else Astra.Muted, fontSize = 14.sp, style = Numbers)
-                        }
-                    }
-                }
+            BookStrip(data, date, habits, onHeading = { history = it }, onHold = { history = it }) { h ->
+                if (hourKind(h) != null) asking = h else repo.toggleHabit(date, h.id)
             }
             Hint("Tap a square to fill it. Study and Shift ask for hours. Hold a square or tap a heading to see its history.", Modifier.padding(top = 6.dp))
         }
@@ -275,6 +228,68 @@ fun DayEditor(repo: Repository, date: LocalDate, entry: DayEntry, habits: List<H
             )
         }
         NoteSection(repo, date, entry.note)
+    }
+}
+
+/**
+ * The notebook grid for one day: habit names sideways along the top, the last few days faded above,
+ * and this day's row of squares. [onTap] null makes it read-only.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun BookStrip(
+    data: AppData, date: LocalDate, habits: List<Habit>,
+    onHeading: (Habit) -> Unit, onHold: (Habit) -> Unit, onTap: ((Habit) -> Unit)?,
+) {
+    val scroll = rememberScrollState()
+    Column(Modifier.padding(top = 6.dp).horizontalScroll(scroll)) {
+        Row {
+            Spacer(Modifier.width(DAY_COL))
+            habits.forEach { h ->
+                Box(Modifier.width(CELL).height(HEAD_H).clickable { onHeading(h) }, contentAlignment = Alignment.BottomCenter) {
+                    Text(
+                        h.name, color = Astra.Muted, fontSize = 13.sp, maxLines = 1, softWrap = false,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 6.dp).sideways(),
+                    )
+                }
+            }
+            Box(Modifier.width(CELL + 8.dp).height(HEAD_H), contentAlignment = Alignment.BottomCenter) {
+                Text("Sleep", color = Astra.Muted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 6.dp).sideways())
+            }
+        }
+        (ROW_DAYS downTo 0).forEach { back ->
+            val day = date.minusDays(back.toLong())
+            val e = data.days[day.toString()] ?: DayEntry(day.toString())
+            val live = back == 0
+            Row(
+                Modifier.height(if (live) CELL + 8.dp else CELL).alpha(if (live) 1f else 0.45f),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.width(DAY_COL)) {
+                    Text(day.format(DateTimeFormatter.ofPattern("EEE")), color = if (live) Astra.Signal else Astra.Muted, fontSize = 12.sp)
+                    Text("${day.dayOfMonth}", color = Astra.Text, fontSize = if (live) 18.sp else 14.sp, style = Score)
+                }
+                habits.forEach { h ->
+                    val kind = hourKind(h)
+                    val hours = kind?.let { dayMinutes(data, it, day) / 60f } ?: 0f
+                    BookCell(
+                        on = h.id in e.done,
+                        hours = if (kind != null && hours > 0f) hours else null,
+                        fill = if (kind == KIND_SHIFT) Astra.Signal else Astra.Ink,
+                        rest = e.rest && e.done.isEmpty(),
+                        big = live,
+                        modifier = when {
+                            !live -> Modifier
+                            onTap == null -> Modifier.combinedClickable(onLongClick = { onHold(h) }, onClick = { onHold(h) })
+                            else -> Modifier.combinedClickable(onLongClick = { onHold(h) }, onClick = { onTap(h) })
+                        },
+                    )
+                }
+                Box(Modifier.width(CELL + 8.dp), contentAlignment = Alignment.Center) {
+                    Text(e.sleep?.let { fmtHours(it) } ?: "·", color = if (live) Astra.Text else Astra.Muted, fontSize = 14.sp, style = Numbers)
+                }
+            }
+        }
     }
 }
 

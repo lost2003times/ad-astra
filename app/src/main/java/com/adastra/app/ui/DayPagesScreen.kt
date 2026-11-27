@@ -47,6 +47,17 @@ import com.adastra.app.data.Repository
 import com.adastra.app.data.Stats
 import com.adastra.app.data.appToday
 import com.adastra.app.data.fmtHours
+import com.adastra.app.data.fmtDuration
+import com.adastra.app.data.dayMinutes
+import com.adastra.app.data.KIND_STUDY
+import com.adastra.app.data.KIND_SHIFT
+import com.adastra.app.data.Habit
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.text.font.FontStyle
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -78,7 +89,7 @@ fun DayPagesScreen(repo: Repository, start: LocalDate, onClose: () -> Unit) {
         // Drawn above the pages so a turning page never covers it.
         Row(Modifier.zIndex(1f).fillMaxWidth().background(Astra.Bg).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onClose) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = Astra.Ink)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = Astra.Text)
                 Text("Grid", color = Astra.Ink, fontSize = 16.sp)
             }
             Spacer(Modifier.weight(1f))
@@ -164,15 +175,17 @@ fun DayPagesScreen(repo: Repository, start: LocalDate, onClose: () -> Unit) {
 private fun DayPage(repo: Repository, data: AppData, date: LocalDate, editing: Boolean) {
     val e = data.days[date.toString()]
     val habits = data.habits.filter { !it.archived || e?.done?.contains(it.id) == true }
+    var history by remember { mutableStateOf<Habit?>(null) }
+    history?.let { h -> HabitHistory(repo, h) { history = null } }
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 4.dp)
+            .padding(horizontal = 20.dp, vertical = 4.dp)
     ) {
-        Text(date.format(DateTimeFormatter.ofPattern("EEEE")), color = Astra.Muted, fontSize = 15.sp)
-        Text(date.format(DateTimeFormatter.ofPattern("d MMMM yyyy")), color = Astra.Text, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(14.dp))
+        Label(date.format(DateTimeFormatter.ofPattern("EEEE")))
+        Text(date.format(DateTimeFormatter.ofPattern("d MMMM yyyy")), color = Astra.Text, fontSize = 34.sp, lineHeight = 38.sp, style = Score)
+        Spacer(Modifier.height(10.dp))
 
         if (editing) {
             DayEditor(repo, date, e ?: DayEntry(date.toString()), data.habits.filter { !it.archived })
@@ -180,32 +193,61 @@ private fun DayPage(repo: Repository, data: AppData, date: LocalDate, editing: B
             return@Column
         }
 
-        val empty = e == null || (!e.isStep && e.note.isBlank() && e.sleep == null)
-        if (empty || e == null) {
-            Text("Nothing was logged on this day.", color = Astra.Muted, fontSize = 16.sp)
-            return@Column
+        val state = when {
+            e == null -> null
+            e.done.isNotEmpty() -> "STEP"
+            e.rest -> "REST"
+            else -> null
         }
-        if (e.note.isNotBlank()) {
-            Text(e.note, color = Astra.Text, fontSize = 22.sp, lineHeight = 31.sp)
-            Spacer(Modifier.height(10.dp))
+        // A seal for a day that counted, like the stamps on Today.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(34.dp).rotate(-5f).clip(RoundedCornerShape(5.dp)).background(
+                    when (state) { "STEP" -> Astra.Signal; "REST" -> Astra.Rest; else -> Astra.Empty }
+                ),
+                contentAlignment = Alignment.Center,
+            ) { Text(date.format(DateTimeFormatter.ofPattern("EEEEE")), color = Astra.Bg, fontSize = 14.sp, style = Score) }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                when (state) {
+                    "STEP" -> "${e!!.done.size} of ${habits.size} filled in"
+                    "REST" -> "Rest day. It counted."
+                    else -> "Nothing was logged on this day."
+                },
+                color = if (state == null) Astra.Muted else Astra.Text, fontSize = 15.sp,
+            )
         }
-        Section("Habits", trailing = "${e.done.size} of ${habits.size}") {
-            habits.chunked(2).forEach { pair ->
-                Row(Modifier.fillMaxWidth()) {
-                    pair.forEach { h ->
-                        val on = h.id in e.done
-                        Row(Modifier.weight(1f).height(42.dp), verticalAlignment = Alignment.CenterVertically) {
-                            CheckSquare(on, size = 20.dp)
-                            Spacer(Modifier.width(12.dp))
-                            Text(h.name, color = if (on) Astra.Text else Astra.Muted, fontSize = 15.sp, maxLines = 1)
-                        }
-                    }
-                    if (pair.size == 1) Spacer(Modifier.weight(1f))
-                }
+
+        if (e != null && e.note.isNotBlank()) {
+            Row(Modifier.fillMaxWidth().padding(top = 18.dp).height(IntrinsicSize.Min)) {
+                Box(Modifier.width(3.dp).fillMaxHeight().background(Astra.Signal))
+                Spacer(Modifier.width(14.dp))
+                Text(e.note, color = Astra.Text, fontSize = 20.sp, lineHeight = 28.sp, fontStyle = FontStyle.Italic)
             }
         }
-        Section("Sleep", trailing = e.sleep?.let { "${fmtHours(it)} h" } ?: "Not logged") {}
-        if (e.rest) Section("Rest day") { Hint("A planned recovery day.") }
+
+        val study = dayMinutes(data, KIND_STUDY, date) / 60f
+        val shift = dayMinutes(data, KIND_SHIFT, date) / 60f
+        Card {
+            Row {
+                DayStat("Study", if (study > 0) fmtDuration(study) else "–", Astra.Text, Modifier.weight(1f))
+                DayStat("Shift", if (shift > 0) fmtDuration(shift) else "–", Astra.Signal, Modifier.weight(1f))
+                DayStat("Sleep", e?.sleep?.let { "${fmtHours(it)} h" } ?: "–", Astra.Text, Modifier.weight(1f))
+            }
+        }
+
+        Spacer(Modifier.height(18.dp))
+        Label("The page")
+        BookStrip(data, date, habits, onHeading = { history = it }, onHold = { history = it }, onTap = null)
+        Hint("Hold the lock at the top to edit this day.", Modifier.padding(top = 8.dp))
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun DayStat(label: String, value: String, color: androidx.compose.ui.graphics.Color, modifier: Modifier) {
+    Column(modifier) {
+        Text(value, color = color, fontSize = 22.sp, style = Score)
+        Label(label)
     }
 }
