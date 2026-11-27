@@ -30,35 +30,52 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import com.adastra.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Graphite page, indigo ink for "done", one amber accent for the streak. */
+/** Black page, parchment ink for "done", seal red for the streak and shifts. */
 object Astra {
-    val Bg = Color(0xFF171A21)
-    val Surface = Color(0xFF1F232C)
-    val Line = Color(0xFF2E3440)
-    val Empty = Color(0xFF242934)
-    val Text = Color(0xFFE8EAED)
-    val Muted = Color(0xFF8B93A1)
-    val Ink = Color(0xFF6C79F0)
-    val Signal = Color(0xFFD9A441)
-    val Rest = Color(0xFF4F6B87)
+    val Bg = Color(0xFF0B0A09)
+    val Surface = Color(0xFF171512)
+    val Line = Color(0xFF2B2620)
+    val Empty = Color(0xFF26221D)
+    val Text = Color(0xFFEDE3CF)
+    val Muted = Color(0xFF8C826F)
+    val Ink = Color(0xFFEDE3CF)
+    val Signal = Color(0xFFB3261E)
+    val Rest = Color(0xFF5E6B73)
 }
 
-/** Kalam: a handwriting face, so the app reads like the paper notebook. */
-val Hand = FontFamily(
-    Font(R.font.kalam_regular, FontWeight.Normal),
-    Font(R.font.kalam_bold, FontWeight.Bold),
-)
+/** The uneven, hand-pulled edge of a brush stroke. */
+val BrushShape = RoundedCornerShape(topStart = 7.dp, topEnd = 2.dp, bottomEnd = 9.dp, bottomStart = 3.dp)
+
+/** Serif for words (ink on paper), heavy sans for the scoreboard numbers. */
+val Hand = FontFamily.Serif
 val Serif = Hand
-val Numbers = TextStyle(fontFamily = Hand, fontFeatureSettings = "tnum")
+val Numbers = TextStyle(fontFamily = FontFamily.SansSerif, fontFeatureSettings = "tnum")
+val Score = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.ExtraBold, fontFeatureSettings = "tnum")
+
+/** Small spaced capitals used as labels ("THURSDAY · 27 NOV"). */
+@Composable
+fun Label(text: String, modifier: Modifier = Modifier, color: Color = Astra.Muted) =
+    Text(text.uppercase(), modifier, color = color, fontSize = 11.sp, letterSpacing = 2.sp, fontFamily = FontFamily.SansSerif)
+
+/** A rounded dark card, the scoreboard's building block. */
+@Composable
+fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
+    Column(modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(14.dp)).background(Astra.Surface).padding(14.dp), content = content)
+
+/** A brush-stroke progress bar. */
+@Composable
+fun BrushBar(frac: Float, color: Color, modifier: Modifier = Modifier, height: Dp = 9.dp) {
+    Box(modifier.fillMaxWidth().height(height).clip(BrushShape).background(Astra.Empty)) {
+        if (frac > 0f) Box(Modifier.fillMaxWidth(frac.coerceIn(0.02f, 1f)).height(height).clip(BrushShape).background(color))
+    }
+}
 
 private val handType = Typography().run {
     Typography(
@@ -81,8 +98,8 @@ private val handType = Typography().run {
 }
 
 private val scheme = darkColorScheme(
-    primary = Astra.Ink, onPrimary = Color.White,
-    secondary = Astra.Signal, onSecondary = Astra.Bg,
+    primary = Astra.Ink, onPrimary = Astra.Bg,
+    secondary = Astra.Signal, onSecondary = Astra.Text,
     background = Astra.Bg, onBackground = Astra.Text,
     surface = Astra.Surface, onSurface = Astra.Text,
     surfaceVariant = Astra.Surface, onSurfaceVariant = Astra.Muted,
@@ -144,7 +161,7 @@ fun CheckSquare(on: Boolean, size: Dp = 22.dp, fill: Color = Astra.Ink) {
             .then(if (on) Modifier.background(fill) else Modifier.border(1.5.dp, Astra.Line, shape)),
         contentAlignment = Alignment.Center,
     ) {
-        if (on) Icon(Icons.Filled.Check, null, Modifier.size(size * 0.72f), tint = Color.White)
+        if (on) Icon(Icons.Filled.Check, null, Modifier.size(size * 0.72f), tint = if (fill == Astra.Signal || fill == Astra.Rest) Astra.Text else Astra.Bg)
     }
 }
 

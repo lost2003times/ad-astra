@@ -20,7 +20,7 @@ The rule is simple: **never a zero day.** You don't have to do everything. One h
 
 **Evening reminder.** If nothing is logged by the set time (9:30 PM by default), you get a notification with one of your own lines. It doesn't nag, and it doesn't show red marks.
 
-**Like a notebook.** Text is set in the Kalam handwriting font, and switching tabs or days turns a page.
+**Look.** Black page, parchment ink and seal red: big scoreboard numbers, brush-stroke progress bars, and a red stamp for every day this week that wasn't a zero. Today is filled in like the notebook grid, with habit names written sideways and the last few days above today's row. Switching tabs or days turns a page.
 
 **Fair stats.** Days before you started using the app don't count as zeros. Today only counts once you log something. A day runs from 4 AM to 4 AM, so a check-in after midnight still counts for the day you just finished.
 

@@ -124,9 +124,9 @@ fun HoursScreen(repo: Repository) {
         item { TimerBlock(data, now, repo) { adding = true } }
         item { YearBlock(h) }
         item { WeekBlock(h) }
-        if (advice.wins.isNotEmpty()) item { Section("What's working") { advice.wins.forEach { Point(it) } } }
-        if (advice.leaks.isNotEmpty()) item { Section("Where the time goes") { advice.leaks.forEach { Point(it, Astra.Signal) } } }
-        if (advice.plan.isNotEmpty()) item { Section("The plan") { advice.plan.forEach { Point(it, Astra.Muted) } } }
+        if (advice.wins.isNotEmpty()) item { AdviceCard("What's working", advice.wins, Astra.Ink) }
+        if (advice.leaks.isNotEmpty()) item { AdviceCard("Where the time goes", advice.leaks, Astra.Signal) }
+        if (advice.plan.isNotEmpty()) item { AdviceCard("The plan", advice.plan, Astra.Muted) }
         item { PhoneBlock(access, usage?.first) { ctx.startActivity(PhoneUsage.settingsIntent(ctx)) } }
         item { WeeksChart(h) }
         val recent = data.sessions.sortedByDescending { it.start }.take(12)
@@ -170,14 +170,28 @@ private fun readUsage(ctx: android.content.Context, d: AppData): Pair<UsageRepor
     return week to prev
 }
 
+/** Advice as a card with a colored edge, like a margin note. */
+@Composable
+private fun AdviceCard(title: String, lines: List<String>, edge: Color) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 10.dp).height(androidx.compose.foundation.layout.IntrinsicSize.Min)
+            .clip(RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp, topStart = 4.dp, bottomStart = 4.dp)).background(Astra.Surface),
+    ) {
+        Box(Modifier.width(3.dp).fillMaxHeight().background(edge))
+        Column(Modifier.padding(14.dp)) {
+            Label(title)
+            Spacer(Modifier.height(4.dp))
+            lines.forEach { Text(it, color = Astra.Text, fontSize = 15.sp, lineHeight = 21.sp, modifier = Modifier.padding(vertical = 4.dp)) }
+        }
+    }
+}
+
 private val dayFmt = DateTimeFormatter.ofPattern("EEE d MMM")
 private fun kindName(k: String) = if (k == KIND_STUDY) "Study" else "Shift"
 
 @Composable
 private fun Bar(frac: Float, color: Color, height: Dp = 10.dp) {
-    Box(Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(3.dp)).background(Astra.Empty)) {
-        Box(Modifier.fillMaxWidth(frac.coerceIn(0f, 1f)).fillMaxHeight().background(color))
-    }
+    BrushBar(frac, color, height = height)
 }
 
 @Composable
@@ -192,7 +206,7 @@ private fun TimerBlock(d: AppData, now: Long, repo: Repository, onAdd: () -> Uni
             Text(if (t.kind == KIND_STUDY) "Studying" else "On shift", color = if (t.kind == KIND_STUDY) StudyColor else ShiftColor, fontSize = 16.sp)
             Text(
                 "%d:%02d:%02d".format(secs / 3600, (secs / 60) % 60, secs % 60),
-                color = Astra.Text, fontSize = 48.sp, fontWeight = FontWeight.Bold, style = Numbers,
+                color = Astra.Text, fontSize = 56.sp, style = Score,
             )
             val started = Instant.ofEpochMilli(t.start).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("h:mm a"))
             Hint("Started at $started. The clock keeps running if you close the app.")
@@ -206,7 +220,7 @@ private fun TimerBlock(d: AppData, now: Long, repo: Repository, onAdd: () -> Uni
             Hint("Timed hours are the real ones. Phone use while studying shows up below.", Modifier.padding(top = 2.dp, bottom = 12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = { repo.startTimer(KIND_STUDY) }, colors = ButtonDefaults.buttonColors(containerColor = StudyColor)) { Text("Study") }
-                Button(onClick = { repo.startTimer(KIND_SHIFT) }, colors = ButtonDefaults.buttonColors(containerColor = ShiftColor, contentColor = Astra.Bg)) { Text("Shift") }
+                Button(onClick = { repo.startTimer(KIND_SHIFT) }, colors = ButtonDefaults.buttonColors(containerColor = ShiftColor, contentColor = Astra.Text)) { Text("Shift") }
             }
             TextButton(onClick = onAdd) { Text("Add time by hand", color = Astra.Muted) }
         }
@@ -218,7 +232,7 @@ private fun YearBlock(h: HoursSummary) {
     val fmt = DateTimeFormatter.ofPattern("d MMM yyyy")
     Section("The year", trailing = "day ${h.dayOfYear} of ${h.dayOfYear + h.daysLeft}") {
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(String.format("%.1f", h.yearStudy), color = Astra.Text, fontSize = 40.sp, fontWeight = FontWeight.Bold, style = Numbers)
+            Text(String.format("%.1f", h.yearStudy), color = Astra.Text, fontSize = 56.sp, lineHeight = 56.sp, style = Score)
             Text(" / ${h.yearGoal} h", color = Astra.Muted, fontSize = 18.sp, modifier = Modifier.padding(bottom = 8.dp))
         }
         Box(Modifier.fillMaxWidth().height(14.dp)) {
