@@ -18,19 +18,15 @@ import com.adastra.app.R
 import com.adastra.app.data.RunningTimer
 import com.adastra.app.data.KIND_BREAK
 import com.adastra.app.data.KIND_STUDY
-import com.adastra.app.data.appDayOf
 import com.adastra.app.data.fmtDuration
 
 /**
  * The study focus timer: for a set length the phone goes into Do Not Disturb, then sound comes back.
- * Hours aren't logged automatically; the "done" notification offers to add them.
+ * Whatever time actually ran is logged when it ends, finished or ended early.
  */
 object Focus {
     const val ACTION_END = "com.adastra.app.FOCUS_END"     // the timer ran out
     const val ACTION_STOP = "com.adastra.app.FOCUS_STOP"   // ended early from the notification
-    const val ACTION_LOG = "com.adastra.app.FOCUS_LOG"     // "Log to Study" on the done notification
-    const val EXTRA_MINUTES = "minutes"
-    const val EXTRA_DAY = "day"
 
     fun hasDndAccess(ctx: Context) = ctx.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
 
@@ -102,20 +98,13 @@ object Focus {
             )
             return
         }
-        val log = PendingIntent.getBroadcast(
-            ctx, 8,
-            Intent(ctx, FocusReceiver::class.java).setAction(ACTION_LOG)
-                .putExtra(EXTRA_MINUTES, minutes).putExtra(EXTRA_DAY, appDayOf(t.start).toString()),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
         nm.notify(
             22,
             NotificationCompat.Builder(ctx, TimerNotice.CHANNEL_DONE)
                 .setSmallIcon(R.drawable.ic_star)
                 .setContentTitle("Study block done: ${fmtDuration(minutes / 60f)}")
-                .setContentText("Sound is back on.")
+                .setContentText("Logged to Study. Sound is back on.")
                 .setContentIntent(TimerNotice.openHours(ctx))
-                .addAction(0, "Log to Study", log)
                 .setAutoCancel(true)
                 .build(),
         )
@@ -180,12 +169,6 @@ class FocusReceiver : BroadcastReceiver() {
         when (intent.action) {
             Focus.ACTION_END -> Focus.end(context, completed = true)
             Focus.ACTION_STOP -> Focus.end(context, completed = false)
-            Focus.ACTION_LOG -> {
-                val minutes = intent.getIntExtra(Focus.EXTRA_MINUTES, 0)
-                val day = intent.getStringExtra(Focus.EXTRA_DAY)?.let { java.time.LocalDate.parse(it) } ?: return
-                (context.applicationContext as AdAstraApp).repo.addStudyMinutes(day, minutes)
-                NotificationManagerCompat.from(context).cancel(22)
-            }
         }
     }
 }

@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
         val repo = app.repo
         Reminder.schedule(this, repo.data.value.settings)
         NewsAlarm.schedule(this, repo.data.value.settings)
+        com.adastra.app.notify.WeeklyReport.schedule(this)
         openTab.value = intent?.getStringExtra(NewsAlarm.EXTRA_OPEN_TAB)
         setContent { AstraTheme { AppRoot(repo, app.news, openTab.value) { openTab.value = null } } }
     }

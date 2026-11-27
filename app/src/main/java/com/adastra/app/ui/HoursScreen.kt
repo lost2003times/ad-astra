@@ -63,6 +63,7 @@ import com.adastra.app.data.AppData
 import com.adastra.app.data.HoursSummary
 import com.adastra.app.data.Hours
 import com.adastra.app.data.KIND_SHIFT
+import com.adastra.app.data.KIND_BREAK
 import com.adastra.app.data.KIND_STUDY
 import com.adastra.app.data.Repository
 import com.adastra.app.data.Session
@@ -182,7 +183,7 @@ private fun AdviceCard(title: String, lines: List<String>, edge: Color) {
 }
 
 private val dayFmt = DateTimeFormatter.ofPattern("EEE d MMM")
-private fun kindName(k: String) = if (k == KIND_STUDY) "Study" else "Shift"
+private fun kindName(k: String) = when (k) { KIND_STUDY -> "Study"; KIND_BREAK -> "Break"; else -> "Shift" }
 
 @Composable
 private fun Bar(frac: Float, color: Color, height: Dp = 10.dp) {
@@ -364,11 +365,12 @@ private fun WeeksChart(h: HoursSummary) {
 private fun SessionRow(s: Session, onDelete: () -> Unit) {
     HorizontalDivider(color = Astra.Line.copy(alpha = 0.6f))
     Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).background(if (s.kind == KIND_STUDY) StudyColor else ShiftColor))
+        Box(Modifier.size(8.dp).background(when (s.kind) { KIND_STUDY -> StudyColor; KIND_BREAK -> Astra.Rest; else -> ShiftColor }))
         Spacer(Modifier.width(12.dp))
         Text(LocalDate.parse(s.date).format(dayFmt), color = Astra.Text, fontSize = 15.sp, modifier = Modifier.weight(1f))
         Text(
-            "${kindName(s.kind)}  ${fmtDuration(s.minutes / 60f)}" + if (s.manual) "  (added)" else "",
+            "${kindName(s.kind)}  ${if (s.minutes < 60) "${s.minutes} min" else fmtDuration(s.minutes / 60f)}" +
+                if (s.manual) "  (added)" else "  (timer)",
             color = Astra.Muted, fontSize = 14.sp,
         )
         IconButton(onClick = onDelete) { Icon(Icons.Filled.Close, "Delete", tint = Astra.Line) }

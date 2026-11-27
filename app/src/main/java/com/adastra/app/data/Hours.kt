@@ -54,7 +54,11 @@ object Hours {
         val m = HashMap<LocalDate, FloatArray>()
         fun add(date: LocalDate, kind: String, minutes: Int) {
             val a = m.getOrPut(date) { FloatArray(2) }
-            if (kind == KIND_STUDY) a[0] += minutes / 60f else a[1] += minutes / 60f
+            when (kind) {
+                KIND_STUDY -> a[0] += minutes / 60f
+                KIND_SHIFT -> a[1] += minutes / 60f
+                else -> {}   // breaks are kept but aren't hours
+            }
         }
         d.sessions.forEach { add(LocalDate.parse(it.date), it.kind, it.minutes) }
         return m.mapValues { it.value[0] to it.value[1] }

@@ -51,6 +51,7 @@ import com.adastra.app.data.fmtDuration
 import com.adastra.app.data.dayMinutes
 import com.adastra.app.data.KIND_STUDY
 import com.adastra.app.data.KIND_SHIFT
+import com.adastra.app.data.KIND_BREAK
 import com.adastra.app.data.Habit
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -234,6 +235,17 @@ private fun DayPage(repo: Repository, data: AppData, date: LocalDate, editing: B
                 DayStat("Study", if (study > 0) fmtDuration(study) else "–", Astra.Text, Modifier.weight(1f))
                 DayStat("Shift", if (shift > 0) fmtDuration(shift) else "–", Astra.Signal, Modifier.weight(1f))
                 DayStat("Sleep", e?.sleep?.let { "${fmtHours(it)} h" } ?: "–", Astra.Text, Modifier.weight(1f))
+            }
+            val breaks = data.sessions.filter { it.kind == KIND_BREAK && it.date == date.toString() }
+            val blocks = data.sessions.count { it.kind == KIND_STUDY && it.date == date.toString() && !it.manual }
+            if (breaks.isNotEmpty() || blocks > 0) {
+                Text(
+                    listOfNotNull(
+                        if (blocks > 0) "$blocks study ${if (blocks == 1) "block" else "blocks"} on the timer" else null,
+                        if (breaks.isNotEmpty()) "${breaks.size} ${if (breaks.size == 1) "break" else "breaks"}, ${breaks.sumOf { it.minutes }} min" else null,
+                    ).joinToString(" · "),
+                    color = Astra.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp),
+                )
             }
         }
 

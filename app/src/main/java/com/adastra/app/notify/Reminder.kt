@@ -82,6 +82,7 @@ class BootReceiver : BroadcastReceiver() {
             val settings = (context.applicationContext as AdAstraApp).repo.data.value.settings
             Reminder.schedule(context, settings)
             NewsAlarm.schedule(context, settings)
+            WeeklyReport.schedule(context)
         }
     }
 }

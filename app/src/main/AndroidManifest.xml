@@ -54,6 +54,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".notify.WeeklyReportReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".notify.BootReceiver"
             android:exported="true">
             <intent-filter>

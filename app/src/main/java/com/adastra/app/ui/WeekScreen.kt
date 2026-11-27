@@ -1,5 +1,9 @@
 package com.adastra.app.ui
 
+import com.adastra.app.data.Report
+import com.adastra.app.usage.PhoneUsage
+import com.adastra.app.usage.UsageReport
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -58,6 +62,15 @@ fun WeekScreen(repo: Repository) {
     val cur = Stats.week(data, start, today)
     val prev = Stats.week(data, start.minusWeeks(1), today)
     val review = Review.build(data, cur, prev, Stats.currentStreak(data, today), isCurrent)
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    // Phone use for this week and the one before (Android keeps about two weeks of it).
+    val phone by androidx.compose.runtime.produceState<Pair<UsageReport, UsageReport>?>(null, start, data.sessions.size) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            runCatching { weekUsage(ctx, data, start, today) }.getOrNull()
+        }
+    }
+    val report = remember(data, start, phone) { Report.build(data, start, today, phone?.first, phone?.second) }
+    val lastReport = remember(data, start) { if (isCurrent) Report.build(data, start.minusWeeks(1), today) else null }
     val habits = data.habits.filter { !it.archived }
     val fmt = DateTimeFormatter.ofPattern("d MMM")
     val days = (0L..6L).map { start.plusDays(it) }
@@ -76,8 +89,12 @@ fun WeekScreen(repo: Repository) {
                 }
             }
         }
+        lastReport?.takeIf { it.study + it.shift > 0f }?.let { r ->
+            item { LastWeekLink(r) { start = start.minusWeeks(1) } }
+        }
+        item { ReportCardView(report) }
         item {
-            Column(Modifier.padding(top = 12.dp, bottom = 16.dp)) {
+            Column(Modifier.padding(top = 16.dp, bottom = 16.dp)) {
                 if (cur.elapsed == 0) {
                     Text("Nothing logged yet this week.", color = Astra.Text, fontSize = 18.sp)
                 } else {
@@ -161,6 +178,18 @@ fun WeekScreen(repo: Repository) {
         }
         item { Spacer(Modifier.height(16.dp)) }
     }
+}
+
+private fun weekUsage(ctx: android.content.Context, d: com.adastra.app.data.AppData, start: LocalDate, today: LocalDate): Pair<UsageReport, UsageReport>? {
+    if (!PhoneUsage.hasAccess(ctx) || start.isBefore(today.minusDays(13))) return null
+    val zone = java.time.ZoneId.systemDefault()
+    fun at(day: LocalDate) = day.atTime(4, 0).atZone(zone).toInstant().toEpochMilli()
+    val now = System.currentTimeMillis()
+    val study = d.focusRuns.map { it.start to it.end }
+    val days = (java.time.temporal.ChronoUnit.DAYS.between(start, today).toInt() + 1).coerceIn(1, 7)
+    val week = PhoneUsage.report(ctx, at(start), minOf(now, at(start.plusDays(7))), days, study)
+    val prev = PhoneUsage.report(ctx, at(start.minusDays(7)), at(start), 7, study)
+    return week to prev
 }
 
 private fun dayLetter(d: LocalDate) = d.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault())

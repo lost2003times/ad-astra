@@ -132,14 +132,26 @@ class Repository(private val file: File) {
         return t
     }
 
-    /** Ends the focus block and records it. Returns the minutes it ran. Hours are logged by hand. */
+    /**
+     * Ends the focus block and logs the time it really ran, finished or not:
+     * study goes into Study (and ticks the habit), a break is kept as a break.
+     * Returns the minutes logged.
+     */
     fun endFocus(): Int {
         val t = _data.value.timer ?: return 0
         val stop = minOf(System.currentTimeMillis(), t.end ?: Long.MAX_VALUE)
-        val minutes = ((stop - t.start) / 60_000).toInt()
+        val minutes = ((stop - t.start) / 60_000).toInt().coerceIn(0, 24 * 60)
+        val s = if (minutes >= 1) Session(UUID.randomUUID().toString(), t.kind, appDayOf(t.start).toString(), t.start, minutes) else null
         update { d ->
-            val keep = minutes >= 1 && t.kind == KIND_STUDY
-            d.copy(timer = null, focusRuns = if (keep) (d.focusRuns + FocusRun(t.start, stop)).takeLast(500) else d.focusRuns)
+            val study = s != null && t.kind == KIND_STUDY
+            withHourTick(
+                d.copy(
+                    timer = null,
+                    sessions = if (s != null) d.sessions + s else d.sessions,
+                    focusRuns = if (study) (d.focusRuns + FocusRun(t.start, stop)).takeLast(500) else d.focusRuns,
+                ),
+                s,
+            )
         }
         return minutes
     }
