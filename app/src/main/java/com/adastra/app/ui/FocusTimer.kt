@@ -167,17 +167,8 @@ private fun Running(kind: String, start: Long, end: Long, now: Long, ctx: Contex
 @Composable
 private fun Setup(ctx: Context, dnd: Boolean) {
     var minutes by remember { mutableIntStateOf(60) }
-    var typing by remember { mutableStateOf(false) }
     Label("Study timer")
-    TimeDial(minutes, { minutes = it.coerceAtLeast(5) }, Astra.Signal, Modifier.padding(vertical = 6.dp), caption = "1 turn = 1 hour")
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf(60, 120, 240, 360, 480).forEach { m -> Pill(fmtLength(m), minutes == m, Astra.Ink, Modifier.weight(1f)) { minutes = m } }
-    }
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Pill("− 15", false, Astra.Ink, Modifier.weight(1f)) { minutes = (minutes - 15).coerceAtLeast(5) }
-        Pill("Type", false, Astra.Ink, Modifier.weight(1f)) { typing = true }
-        Pill("+ 15", false, Astra.Ink, Modifier.weight(1f)) { minutes = (minutes + 15).coerceAtMost(24 * 60) }
-    }
+    TimeDial(minutes, { minutes = it.coerceAtLeast(5) }, Astra.Signal, Modifier.padding(vertical = 10.dp), size = 280.dp, caption = "1 turn = 1 hour")
     Spacer(Modifier.height(14.dp))
     Box(
         Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(12.dp)).background(Astra.Text)
@@ -199,26 +190,6 @@ private fun Setup(ctx: Context, dnd: Boolean) {
         TextButton(onClick = { ctx.startActivity(Focus.dndSettingsIntent()) }) { Text("Allow Do Not Disturb access", color = Astra.Signal) }
     }
 
-    if (typing) {
-        var h by remember { mutableStateOf((minutes / 60).toString()) }
-        var m by remember { mutableStateOf((minutes % 60).toString()) }
-        val total = (h.toIntOrNull() ?: 0) * 60 + (m.toIntOrNull() ?: 0)
-        AlertDialog(
-            onDismissRequest = { typing = false },
-            title = { Text("How long?") },
-            text = {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val num = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    OutlinedTextField(h, { h = it.filter(Char::isDigit).take(2) }, Modifier.weight(1f), label = { Text("Hours") }, singleLine = true, colors = fieldColors(), keyboardOptions = num)
-                    OutlinedTextField(m, { m = it.filter(Char::isDigit).take(2) }, Modifier.weight(1f), label = { Text("Minutes") }, singleLine = true, colors = fieldColors(), keyboardOptions = num)
-                }
-            },
-            confirmButton = {
-                TextButton(enabled = total in 1..(24 * 60), onClick = { minutes = total; typing = false }) { Text("Set") }
-            },
-            dismissButton = { TextButton(onClick = { typing = false }) { Text("Cancel") } },
-        )
-    }
 }
 
 @Composable

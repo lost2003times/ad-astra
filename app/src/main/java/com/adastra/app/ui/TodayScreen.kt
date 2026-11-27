@@ -341,29 +341,7 @@ private fun HoursSheet(name: String, shift: Boolean, date: LocalDate, current: I
             Label("$name · " + if (date == appToday()) "today" else date.format(DateTimeFormatter.ofPattern("EEE d MMM")))
             Text("How many hours?", color = Astra.Text, fontSize = 22.sp, modifier = Modifier.padding(top = 4.dp))
             Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                TimeDial(minutes, { minutes = it }, if (shift) Astra.Signal else Astra.Ink, size = 230.dp, caption = "1 turn = 1 hour")
-            }
-            listOf(listOf(1f, 2f, 3f, 4f), listOf(5f, 6f, 8f, 10f)).forEach { row ->
-                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    row.forEach { v ->
-                        val on = minutes == (v * 60).roundToInt()
-                        Box(
-                            Modifier.weight(1f).height(44.dp).clip(CircleShape)
-                                .background(if (on) accent else Astra.Empty)
-                                .clickable { minutes = (v * 60).roundToInt() },
-                            contentAlignment = Alignment.Center,
-                        ) { Text(if (v == 0.5f) "½" else fmtNum(v), color = if (on) (if (shift) Astra.Text else Astra.Bg) else Astra.Text, fontSize = 16.sp, style = Numbers) }
-                    }
-                }
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(-60 to "− 1", -30 to "− ½", 30 to "+ ½", 60 to "+ 1").forEach { (step, label) ->
-                    Box(
-                        Modifier.weight(1f).height(44.dp).clip(CircleShape).background(Astra.Empty)
-                            .clickable { minutes = (minutes + step).coerceIn(0, 24 * 60) },
-                        contentAlignment = Alignment.Center,
-                    ) { Text(label, color = Astra.Muted, fontSize = 16.sp) }
-                }
+                TimeDial(minutes, { minutes = it }, if (shift) Astra.Signal else Astra.Ink, size = 280.dp, caption = "1 turn = 1 hour")
             }
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(
