@@ -340,9 +340,8 @@ private fun HoursSheet(name: String, shift: Boolean, date: LocalDate, current: I
         Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp).padding(bottom = 28.dp)) {
             Label("$name · " + if (date == appToday()) "today" else date.format(DateTimeFormatter.ofPattern("EEE d MMM")))
             Text("How many hours?", color = Astra.Text, fontSize = 22.sp, modifier = Modifier.padding(top = 4.dp))
-            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
-                Text(fmtNum(minutes / 60f), color = if (shift) Astra.Signal else Astra.Text, fontSize = 76.sp, lineHeight = 76.sp, style = Score)
-                Text(" h", color = Astra.Muted, fontSize = 24.sp, modifier = Modifier.padding(bottom = 12.dp))
+            Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                TimeDial(minutes, { minutes = it }, if (shift) Astra.Signal else Astra.Ink, size = 230.dp, caption = "1 turn = 1 hour")
             }
             listOf(listOf(1f, 2f, 3f, 4f), listOf(5f, 6f, 8f, 10f)).forEach { row ->
                 Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -361,7 +360,7 @@ private fun HoursSheet(name: String, shift: Boolean, date: LocalDate, current: I
                 listOf(-60 to "− 1", -30 to "− ½", 30 to "+ ½", 60 to "+ 1").forEach { (step, label) ->
                     Box(
                         Modifier.weight(1f).height(44.dp).clip(CircleShape).background(Astra.Empty)
-                            .clickable { minutes = (minutes + step).coerceIn(0, 20 * 60) },
+                            .clickable { minutes = (minutes + step).coerceIn(0, 24 * 60) },
                         contentAlignment = Alignment.Center,
                     ) { Text(label, color = Astra.Muted, fontSize = 16.sp) }
                 }
@@ -376,7 +375,7 @@ private fun HoursSheet(name: String, shift: Boolean, date: LocalDate, current: I
                     Modifier.weight(2f).height(52.dp).clip(RoundedCornerShape(12.dp)).background(Astra.Text)
                         .clickable(enabled = minutes > 0) { onSave(minutes) },
                     contentAlignment = Alignment.Center,
-                ) { Text("Log ${fmtNum(minutes / 60f)} h", color = Astra.Bg, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                ) { Text("Log ${fmtLength(minutes)}", color = Astra.Bg, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
             }
         }
     }

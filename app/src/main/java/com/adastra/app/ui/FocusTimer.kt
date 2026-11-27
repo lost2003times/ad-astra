@@ -169,18 +169,14 @@ private fun Setup(ctx: Context, dnd: Boolean) {
     var minutes by remember { mutableIntStateOf(60) }
     var typing by remember { mutableStateOf(false) }
     Label("Study timer")
-    Text(
-        fmtLength(minutes), color = Astra.Text, fontSize = 60.sp, lineHeight = 66.sp, style = Score,
-        modifier = Modifier.padding(vertical = 6.dp).clickable { typing = true },
-    )
-    Hint("Tap the time to type any length.")
-    Spacer(Modifier.height(10.dp))
+    TimeDial(minutes, { minutes = it.coerceAtLeast(5) }, Astra.Signal, Modifier.padding(vertical = 6.dp), caption = "1 turn = 1 hour")
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf(30, 60, 120, 180, 240).forEach { m -> Pill(if (m == 30) "½ h" else fmtLength(m), minutes == m, Astra.Ink, Modifier.weight(1f)) { minutes = m } }
+        listOf(60, 120, 240, 360, 480).forEach { m -> Pill(fmtLength(m), minutes == m, Astra.Ink, Modifier.weight(1f)) { minutes = m } }
     }
     Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Pill("− 15 min", false, Astra.Ink, Modifier.weight(1f)) { minutes = (minutes - 15).coerceAtLeast(5) }
-        Pill("+ 15 min", false, Astra.Ink, Modifier.weight(1f)) { minutes = (minutes + 15).coerceAtMost(12 * 60) }
+        Pill("− 15", false, Astra.Ink, Modifier.weight(1f)) { minutes = (minutes - 15).coerceAtLeast(5) }
+        Pill("Type", false, Astra.Ink, Modifier.weight(1f)) { typing = true }
+        Pill("+ 15", false, Astra.Ink, Modifier.weight(1f)) { minutes = (minutes + 15).coerceAtMost(24 * 60) }
     }
     Spacer(Modifier.height(14.dp))
     Box(
@@ -218,7 +214,7 @@ private fun Setup(ctx: Context, dnd: Boolean) {
                 }
             },
             confirmButton = {
-                TextButton(enabled = total in 1..(12 * 60), onClick = { minutes = total; typing = false }) { Text("Set") }
+                TextButton(enabled = total in 1..(24 * 60), onClick = { minutes = total; typing = false }) { Text("Set") }
             },
             dismissButton = { TextButton(onClick = { typing = false }) { Text("Cancel") } },
         )
