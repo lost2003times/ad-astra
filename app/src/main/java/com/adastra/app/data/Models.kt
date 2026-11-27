@@ -51,8 +51,13 @@ data class Session(
     val manual: Boolean = false,      // typed in rather than timed
 )
 
+/** A study focus block in progress. [end] is when it runs out; [prevFilter] is the Do Not Disturb state to restore. */
 @Serializable
-data class RunningTimer(val kind: String, val start: Long)
+data class RunningTimer(val kind: String, val start: Long, val end: Long? = null, val prevFilter: Int = 0)
+
+/** A finished focus block, used to see phone use while studying. */
+@Serializable
+data class FocusRun(val start: Long, val end: Long)
 
 @Serializable
 data class Goals(
@@ -72,6 +77,7 @@ data class AppData(
     val since: String? = null,                     // first day of using the app
     val sessions: List<Session> = emptyList(),
     val timer: RunningTimer? = null,
+    val focusRuns: List<FocusRun> = emptyList(),
     val goals: Goals = Goals(),
 )
 

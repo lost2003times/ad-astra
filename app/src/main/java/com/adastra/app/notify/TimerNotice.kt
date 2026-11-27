@@ -1,86 +1,174 @@
 package com.adastra.app.notify
 
 import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.adastra.app.AdAstraApp
 import com.adastra.app.MainActivity
 import com.adastra.app.R
-import com.adastra.app.data.KIND_STUDY
 import com.adastra.app.data.RunningTimer
+import com.adastra.app.data.appDayOf
 import com.adastra.app.data.fmtDuration
 
-/** A quiet, ongoing notification with a live clock while study or shift time is running. */
+/**
+ * The study focus timer: for a set length the phone goes into Do Not Disturb, then sound comes back.
+ * Hours aren't logged automatically; the "done" notification offers to add them.
+ */
+object Focus {
+    const val ACTION_END = "com.adastra.app.FOCUS_END"     // the timer ran out
+    const val ACTION_STOP = "com.adastra.app.FOCUS_STOP"   // ended early from the notification
+    const val ACTION_LOG = "com.adastra.app.FOCUS_LOG"     // "Log to Study" on the done notification
+    const val EXTRA_MINUTES = "minutes"
+    const val EXTRA_DAY = "day"
+
+    fun hasDndAccess(ctx: Context) = ctx.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
+
+    fun dndSettingsIntent(): Intent =
+        Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    fun start(ctx: Context, minutes: Int) {
+        val app = ctx.applicationContext as AdAstraApp
+        if (app.repo.data.value.timer != null) end(ctx, completed = false)
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        var prev = 0
+        if (hasDndAccess(ctx)) {
+            prev = nm.currentInterruptionFilter
+            // Priority-only follows your own Do Not Disturb exceptions (alarms, starred contacts).
+            nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY)
+        }
+        val t = app.repo.startFocus(minutes, prev)
+        scheduleEnd(ctx, t.end ?: return)
+    }
+
+    /** Ends the focus block: sound back on, the alarm cancelled, the block recorded. */
+    fun end(ctx: Context, completed: Boolean) {
+        val app = ctx.applicationContext as AdAstraApp
+        val t = app.repo.data.value.timer ?: return
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        if (hasDndAccess(ctx) && t.prevFilter > 0 &&
+            nm.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_PRIORITY
+        ) nm.setInterruptionFilter(t.prevFilter)
+        ctx.getSystemService(AlarmManager::class.java).cancel(endIntent(ctx))
+        val minutes = app.repo.endFocus()
+        if (completed && minutes > 0) notifyDone(ctx, t, minutes)
+    }
+
+    /** After a restart: finish a block that ran out while the phone was off, or re-arm its alarm. */
+    fun resume(ctx: Context) {
+        val t = (ctx.applicationContext as AdAstraApp).repo.data.value.timer ?: return
+        val end = t.end ?: return
+        if (end <= System.currentTimeMillis()) end(ctx, completed = true) else scheduleEnd(ctx, end)
+    }
+
+    private fun endIntent(ctx: Context) = PendingIntent.getBroadcast(
+        ctx, 7, Intent(ctx, FocusReceiver::class.java).setAction(ACTION_END),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    @SuppressLint("MissingPermission")
+    private fun scheduleEnd(ctx: Context, at: Long) {
+        val am = ctx.getSystemService(AlarmManager::class.java)
+        val pi = endIntent(ctx)
+        if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+        else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun notifyDone(ctx: Context, t: RunningTimer, minutes: Int) {
+        val nm = NotificationManagerCompat.from(ctx)
+        if (!nm.areNotificationsEnabled()) return
+        val log = PendingIntent.getBroadcast(
+            ctx, 8,
+            Intent(ctx, FocusReceiver::class.java).setAction(ACTION_LOG)
+                .putExtra(EXTRA_MINUTES, minutes).putExtra(EXTRA_DAY, appDayOf(t.start).toString()),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        nm.notify(
+            22,
+            NotificationCompat.Builder(ctx, TimerNotice.CHANNEL_DONE)
+                .setSmallIcon(R.drawable.ic_star)
+                .setContentTitle("Study block done: ${fmtDuration(minutes / 60f)}")
+                .setContentText("Sound is back on.")
+                .setContentIntent(TimerNotice.openHours(ctx))
+                .addAction(0, "Log to Study", log)
+                .setAutoCancel(true)
+                .build(),
+        )
+    }
+}
+
+/** The ongoing countdown notification while a focus block runs. */
 object TimerNotice {
     private const val CHANNEL = "timer"
+    const val CHANNEL_DONE = "focus_done"
     private const val ID = 21
-    const val ACTION_STOP = "com.adastra.app.STOP_TIMER"
 
     fun createChannel(ctx: Context) {
-        val ch = NotificationChannel(CHANNEL, "Running timer", NotificationManager.IMPORTANCE_LOW).apply {
-            description = "Shows the study or shift clock while it runs"
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Study timer", NotificationManager.IMPORTANCE_LOW).apply {
+            description = "The countdown while a study block runs"
             setShowBadge(false)
-        }
-        ctx.getSystemService(NotificationManager::class.java).createNotificationChannel(ch)
+        })
+        nm.createNotificationChannel(NotificationChannel(CHANNEL_DONE, "Study block done", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "When a study block ends and sound comes back"
+            // Must be allowed through Do Not Disturb so the end is never missed.
+            setBypassDnd(true)
+        })
     }
+
+    fun openHours(ctx: Context): PendingIntent = PendingIntent.getActivity(
+        ctx, 5,
+        Intent(ctx, MainActivity::class.java)
+            .putExtra(NewsAlarm.EXTRA_OPEN_TAB, "Hours")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
 
     @SuppressLint("MissingPermission")
     fun sync(ctx: Context, timer: RunningTimer?) {
         val nm = NotificationManagerCompat.from(ctx)
-        if (timer == null) { nm.cancel(ID); return }
+        if (timer?.end == null) { nm.cancel(ID); return }
         if (!nm.areNotificationsEnabled()) return
-        val open = PendingIntent.getActivity(
-            ctx, 5,
-            Intent(ctx, MainActivity::class.java)
-                .putExtra(NewsAlarm.EXTRA_OPEN_TAB, "Hours")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
         val stop = PendingIntent.getBroadcast(
-            ctx, 6, Intent(ctx, TimerReceiver::class.java).setAction(ACTION_STOP),
+            ctx, 6, Intent(ctx, FocusReceiver::class.java).setAction(Focus.ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_star)
-            .setContentTitle(if (timer.kind == KIND_STUDY) "Studying" else "On shift")
-            .setContentText("Put the phone down. This counts toward the goal.")
-            .setWhen(timer.start)
+            .setContentTitle("Studying · phone on Do Not Disturb")
+            .setContentText("Sound comes back when the timer ends.")
+            .setWhen(timer.end)
             .setUsesChronometer(true)
+            .setChronometerCountDown(true)
             .setShowWhen(true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setContentIntent(open)
-            .addAction(0, "Stop and log", stop)
+            .setContentIntent(openHours(ctx))
+            .addAction(0, "End now", stop)
             .build()
         nm.notify(ID, n)
     }
 }
 
-class TimerReceiver : BroadcastReceiver() {
-    @SuppressLint("MissingPermission")
+class FocusReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != TimerNotice.ACTION_STOP) return
-        val app = context.applicationContext as AdAstraApp
-        val s = app.repo.stopTimer()
-        TimerNotice.sync(context, null)
-        if (s != null) {
-            val nm = NotificationManagerCompat.from(context)
-            if (nm.areNotificationsEnabled()) {
-                nm.notify(
-                    22,
-                    NotificationCompat.Builder(context, "timer")
-                        .setSmallIcon(R.drawable.ic_star)
-                        .setContentTitle("Logged ${fmtDuration(s.minutes / 60f)} of ${if (s.kind == KIND_STUDY) "study" else "shift"}")
-                        .setTimeoutAfter(8_000)
-                        .setAutoCancel(true)
-                        .build(),
-                )
+        when (intent.action) {
+            Focus.ACTION_END -> Focus.end(context, completed = true)
+            Focus.ACTION_STOP -> Focus.end(context, completed = false)
+            Focus.ACTION_LOG -> {
+                val minutes = intent.getIntExtra(Focus.EXTRA_MINUTES, 0)
+                val day = intent.getStringExtra(Focus.EXTRA_DAY)?.let { java.time.LocalDate.parse(it) } ?: return
+                (context.applicationContext as AdAstraApp).repo.addStudyMinutes(day, minutes)
+                NotificationManagerCompat.from(context).cancel(22)
             }
         }
     }

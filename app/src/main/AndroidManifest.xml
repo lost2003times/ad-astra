@@ -10,6 +10,13 @@
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
+    <!-- The study timer puts the phone on Do Not Disturb; the user allows this in Settings -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <!-- So the study timer ends (and sound returns) on time -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
     <!-- To show app names next to their screen time -->
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
@@ -43,7 +50,7 @@
             android:exported="false" />
 
         <receiver
-            android:name=".notify.TimerReceiver"
+            android:name=".notify.FocusReceiver"
             android:exported="false" />
 
         <receiver

@@ -69,6 +69,7 @@ import com.adastra.app.data.Session
 import com.adastra.app.data.appToday
 import com.adastra.app.data.fmtDuration
 import com.adastra.app.usage.Advisor
+import com.adastra.app.notify.Focus
 import com.adastra.app.usage.PhoneUsage
 import com.adastra.app.usage.UsageReport
 import kotlinx.coroutines.Dispatchers
@@ -100,6 +101,7 @@ fun HoursScreen(repo: Repository) {
     var resumed by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumed++ }
     val access = remember(resumed) { PhoneUsage.hasAccess(ctx) }
+    val dnd = remember(resumed) { Focus.hasDndAccess(ctx) }
     val usage by produceState<Pair<UsageReport, UsageReport>?>(null, resumed, access, data.sessions.size) {
         value = if (!access) null else withContext(Dispatchers.Default) {
             runCatching { readUsage(ctx, data) }.getOrNull()
@@ -111,7 +113,6 @@ fun HoursScreen(repo: Repository) {
     }
     val advice = remember(h, usage, sleepAvg) { Advisor.build(h, usage?.first, usage?.second, sleepAvg) }
 
-    var adding by remember { mutableStateOf(false) }
     var goals by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<Session?>(null) }
 
@@ -121,7 +122,7 @@ fun HoursScreen(repo: Repository) {
                 IconButton(onClick = { goals = true }) { Icon(Icons.Filled.Edit, "Goals", tint = Astra.Muted) }
             }
         }
-        item { TimerBlock(data, now, repo) { adding = true } }
+        item { FocusBlock(data, now, ctx, dnd) }
         item { YearBlock(h) }
         item { WeekBlock(h) }
         if (advice.wins.isNotEmpty()) item { AdviceCard("What's working", advice.wins, Astra.Ink) }
@@ -137,14 +138,8 @@ fun HoursScreen(repo: Repository) {
         item { Spacer(Modifier.height(24.dp)) }
     }
 
-    if (adding) AddTimeDialog(onDismiss = { adding = false }) { kind, date, minutes ->
-        repo.addSession(kind, date, minutes); adding = false
-    }
-    if (goals) GoalsDialog(data, onDismiss = { goals = false }) { year, study, shift, restart ->
-        repo.setGoals { g ->
-            g.copy(studyYear = year, studyWeek = study, shiftWeek = shift,
-                yearStart = if (restart) appToday().toString() else g.yearStart)
-        }
+    if (goals) GoalsDialog(data, onDismiss = { goals = false }) { year, study, shift, start ->
+        repo.setGoals { g -> g.copy(studyYear = year, studyWeek = study, shiftWeek = shift, yearStart = start.toString()) }
         goals = false
     }
     deleting?.let { s ->
@@ -161,8 +156,8 @@ fun HoursScreen(repo: Repository) {
 private fun readUsage(ctx: android.content.Context, d: AppData): Pair<UsageReport, UsageReport> {
     val zone = ZoneId.systemDefault()
     val nowMs = System.currentTimeMillis()
-    val study = d.sessions.filter { it.kind == KIND_STUDY && !it.manual }.map { it.start to it.start + it.minutes * 60_000L } +
-        listOfNotNull(d.timer?.takeIf { it.kind == KIND_STUDY }?.let { it.start to nowMs })
+    val study = d.focusRuns.map { it.start to it.end } +
+        listOfNotNull(d.timer?.let { it.start to minOf(nowMs, it.end ?: nowMs) })
     val weekFrom = appToday().minusDays(6).atTime(4, 0).atZone(zone).toInstant().toEpochMilli()
     val prevFrom = appToday().minusDays(13).atTime(4, 0).atZone(zone).toInstant().toEpochMilli()
     val week = PhoneUsage.report(ctx, weekFrom, nowMs, 7, study)
@@ -194,43 +189,76 @@ private fun Bar(frac: Float, color: Color, height: Dp = 10.dp) {
     BrushBar(frac, color, height = height)
 }
 
+/** Study focus: pick a length, the phone goes quiet, sound returns when it ends. */
 @Composable
-private fun TimerBlock(d: AppData, now: Long, repo: Repository, onAdd: () -> Unit) {
-    val t = d.timer
+private fun FocusBlock(d: AppData, now: Long, ctx: android.content.Context, dnd: Boolean) {
+    val t = d.timer?.takeIf { it.end != null }
+    var minutes by remember { mutableIntStateOf(50) }
     Column(
-        Modifier.fillMaxWidth().padding(vertical = 8.dp).clip(RoundedCornerShape(8.dp)).background(Astra.Surface).padding(16.dp),
+        Modifier.fillMaxWidth().padding(vertical = 8.dp).clip(RoundedCornerShape(14.dp)).background(Astra.Surface).padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (t != null) {
-            val secs = ((now - t.start) / 1000).coerceAtLeast(0)
-            Text(if (t.kind == KIND_STUDY) "Studying" else "On shift", color = if (t.kind == KIND_STUDY) StudyColor else ShiftColor, fontSize = 16.sp)
+            val left = ((t.end!! - now) / 1000).coerceAtLeast(0)
+            Label("Studying · phone on Do Not Disturb", color = Astra.Signal)
             Text(
-                "%d:%02d:%02d".format(secs / 3600, (secs / 60) % 60, secs % 60),
-                color = Astra.Text, fontSize = 56.sp, style = Score,
+                "%d:%02d:%02d".format(left / 3600, (left / 60) % 60, left % 60),
+                color = Astra.Text, fontSize = 60.sp, lineHeight = 64.sp, style = Score,
             )
-            val started = Instant.ofEpochMilli(t.start).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("h:mm a"))
-            Hint("Started at $started. The clock keeps running if you close the app.")
+            val ends = Instant.ofEpochMilli(t.end).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("h:mm a"))
+            Hint("Sound comes back at $ends. You can close the app.")
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = { repo.stopTimer() }, colors = ButtonDefaults.buttonColors(containerColor = Astra.Ink)) { Text("Stop and log") }
-                OutlinedButton(onClick = { repo.discardTimer() }) { Text("Discard", color = Astra.Muted) }
-            }
+            OutlinedButton(onClick = { Focus.end(ctx, completed = false) }) { Text("End now", color = Astra.Muted) }
         } else {
-            Text("Start the clock", color = Astra.Text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-            Hint("Timed hours are the real ones. Phone use while studying shows up below.", Modifier.padding(top = 2.dp, bottom = 12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = { repo.startTimer(KIND_STUDY) }, colors = ButtonDefaults.buttonColors(containerColor = StudyColor)) { Text("Study") }
-                Button(onClick = { repo.startTimer(KIND_SHIFT) }, colors = ButtonDefaults.buttonColors(containerColor = ShiftColor, contentColor = Astra.Text)) { Text("Shift") }
+            Label("Study timer")
+            Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.Bottom) {
+                Text(fmtMinutes(minutes), color = Astra.Text, fontSize = 60.sp, lineHeight = 64.sp, style = Score)
             }
-            TextButton(onClick = onAdd) { Text("Add time by hand", color = Astra.Muted) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(25, 50, 60, 90, 120).forEach { m ->
+                    Choice(fmtMinutes(m), minutes == m, Astra.Ink, Modifier.weight(1f)) { minutes = m }
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Choice("− 5 min", false, Astra.Ink, Modifier.weight(1f)) { minutes = (minutes - 5).coerceAtLeast(5) }
+                Choice("+ 5 min", false, Astra.Ink, Modifier.weight(1f)) { minutes = (minutes + 5).coerceAtMost(8 * 60) }
+            }
+            Spacer(Modifier.height(14.dp))
+            Button(
+                onClick = { Focus.start(ctx, minutes) },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Astra.Text, contentColor = Astra.Bg),
+            ) { Text("Start · phone goes silent", fontWeight = FontWeight.Bold) }
+            if (!dnd) {
+                Hint(
+                    "To silence the phone, Android needs you to allow Do Not Disturb access for Ad Astra once.",
+                    Modifier.padding(top = 10.dp),
+                )
+                TextButton(onClick = { ctx.startActivity(Focus.dndSettingsIntent()) }) { Text("Allow Do Not Disturb access", color = Astra.Signal) }
+            } else Hint("Uses your Do Not Disturb exceptions, so alarms and starred contacts still get through. Log the hours on Today.", Modifier.padding(top = 10.dp))
         }
     }
+}
+
+private fun fmtMinutes(m: Int): String = when {
+    m < 60 -> "$m min"
+    m % 60 == 0 -> "${m / 60} h"
+    else -> "${m / 60} h ${m % 60}"
 }
 
 @Composable
 private fun YearBlock(h: HoursSummary) {
     val fmt = DateTimeFormatter.ofPattern("d MMM yyyy")
-    Section("The year", trailing = "day ${h.dayOfYear} of ${h.dayOfYear + h.daysLeft}") {
+    val startFmt = DateTimeFormatter.ofPattern("EEEE d MMM")
+    Section("The year", trailing = if (h.daysUntilStart > 0) "starts ${h.yearStart.format(startFmt)}" else "day ${h.dayOfYear} of ${h.dayOfYear + h.daysLeft}") {
+        if (h.daysUntilStart > 0) {
+            Text("0 / ${h.yearGoal} h", color = Astra.Text, fontSize = 40.sp, style = Score)
+            Text(
+                "The year starts ${h.yearStart.format(startFmt)}, in ${h.daysUntilStart} ${if (h.daysUntilStart == 1) "day" else "days"}. It runs to ${h.yearEnd.format(fmt)}.",
+                color = Astra.Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp),
+            )
+            return@Section
+        }
         Row(verticalAlignment = Alignment.Bottom) {
             Text(String.format("%.1f", h.yearStudy), color = Astra.Text, fontSize = 56.sp, lineHeight = 56.sp, style = Score)
             Text(" / ${h.yearGoal} h", color = Astra.Muted, fontSize = 18.sp, modifier = Modifier.padding(bottom = 8.dp))
@@ -416,48 +444,13 @@ private fun Choice(label: String, on: Boolean, color: Color, modifier: Modifier 
 }
 
 @Composable
-private fun AddTimeDialog(onDismiss: () -> Unit, onAdd: (String, LocalDate, Int) -> Unit) {
-    var kind by remember { mutableStateOf(KIND_STUDY) }
-    var hours by remember { mutableStateOf("") }
-    var yesterday by remember { mutableStateOf(false) }
-    val minutes = hours.replace(',', '.').toFloatOrNull()?.let { (it * 60).roundToInt() } ?: 0
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add time") },
-        text = {
-            Column {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Choice("Study", kind == KIND_STUDY, StudyColor) { kind = KIND_STUDY }
-                    Choice("Shift", kind == KIND_SHIFT, ShiftColor) { kind = KIND_SHIFT }
-                }
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    hours, { hours = it }, label = { Text("Hours, e.g. 1.5") }, singleLine = true, colors = fieldColors(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                )
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Choice("Today", !yesterday, Astra.Text) { yesterday = false }
-                    Choice("Yesterday", yesterday, Astra.Text) { yesterday = true }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = minutes in 1..(16 * 60), onClick = {
-                onAdd(kind, if (yesterday) appToday().minusDays(1) else appToday(), minutes)
-            }) { Text("Add") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-}
-
-@Composable
-private fun GoalsDialog(d: AppData, onDismiss: () -> Unit, onSave: (Int, Int, Int, Boolean) -> Unit) {
+private fun GoalsDialog(d: AppData, onDismiss: () -> Unit, onSave: (Int, Int, Int, LocalDate) -> Unit) {
     val g = d.goals
+    val ctx = LocalContext.current
     var year by remember { mutableStateOf(g.studyYear.toString()) }
     var study by remember { mutableStateOf(g.studyWeek.toString()) }
     var shift by remember { mutableStateOf(g.shiftWeek.toString()) }
-    var restart by remember { mutableStateOf(false) }
+    var start by remember { mutableStateOf(g.yearStart?.let { LocalDate.parse(it) } ?: appToday()) }
     val ok = listOf(year, study, shift).all { (it.toIntOrNull() ?: 0) > 0 }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -468,16 +461,16 @@ private fun GoalsDialog(d: AppData, onDismiss: () -> Unit, onSave: (Int, Int, In
                 OutlinedTextField(year, { year = it }, label = { Text("Study hours in the year") }, singleLine = true, colors = fieldColors(), keyboardOptions = num)
                 OutlinedTextField(study, { study = it }, label = { Text("Study hours a week") }, singleLine = true, colors = fieldColors(), keyboardOptions = num)
                 OutlinedTextField(shift, { shift = it }, label = { Text("Shift hours a week") }, singleLine = true, colors = fieldColors(), keyboardOptions = num)
-                Row(Modifier.clickable { restart = !restart }.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    CheckSquare(restart)
-                    Spacer(Modifier.width(10.dp))
-                    Text("Start the year again from today", color = Astra.Text, fontSize = 14.sp)
-                }
-                Hint("The year started ${g.yearStart ?: "today"}. Logged hours are never deleted.")
+                Label("The year starts", Modifier.padding(top = 6.dp))
+                TextButton(onClick = {
+                    android.app.DatePickerDialog(ctx, { _, y, m, day -> start = LocalDate.of(y, m + 1, day) },
+                        start.year, start.monthValue - 1, start.dayOfMonth).show()
+                }) { Text(start.format(DateTimeFormatter.ofPattern("EEEE d MMM yyyy")), color = Astra.Text, fontSize = 16.sp) }
+                Hint("Logged hours are never deleted. Only hours from this date count toward the year.")
             }
         },
         confirmButton = {
-            TextButton(enabled = ok, onClick = { onSave(year.toInt(), study.toInt(), shift.toInt(), restart) }) { Text("Save") }
+            TextButton(enabled = ok, onClick = { onSave(year.toInt(), study.toInt(), shift.toInt(), start) }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )

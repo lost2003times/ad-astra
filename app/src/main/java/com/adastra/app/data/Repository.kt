@@ -124,6 +124,28 @@ class Repository(private val file: File) {
 
     fun discardTimer() = update { it.copy(timer = null) }
 
+    /** Starts a study focus block of [minutes]. */
+    fun startFocus(minutes: Int, prevFilter: Int): RunningTimer {
+        val now = System.currentTimeMillis()
+        val t = RunningTimer(KIND_STUDY, now, now + minutes * 60_000L, prevFilter)
+        update { it.copy(timer = t) }
+        return t
+    }
+
+    /** Ends the focus block and records it. Returns the minutes it ran. Hours are logged by hand. */
+    fun endFocus(): Int {
+        val t = _data.value.timer ?: return 0
+        val stop = minOf(System.currentTimeMillis(), t.end ?: Long.MAX_VALUE)
+        val minutes = ((stop - t.start) / 60_000).toInt()
+        update { d ->
+            d.copy(timer = null, focusRuns = if (minutes >= 1) (d.focusRuns + FocusRun(t.start, stop)).takeLast(500) else d.focusRuns)
+        }
+        return minutes
+    }
+
+    fun addStudyMinutes(date: LocalDate, minutes: Int) =
+        setDayHours(KIND_STUDY, date, dayMinutes(_data.value, KIND_STUDY, date) + minutes)
+
     fun addSession(kind: String, date: LocalDate, minutes: Int) {
         if (minutes <= 0) return
         val start = date.atTime(12, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()

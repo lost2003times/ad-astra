@@ -27,6 +27,7 @@ data class WeekHours(val start: LocalDate, val study: Float, val shift: Float)
 
 data class HoursSummary(
     val yearStart: LocalDate,
+    val daysUntilStart: Int,         // 0 once the year has begun
     val yearEnd: LocalDate,          // last day of the year
     val dayOfYear: Int,              // 1-based, today included
     val daysLeft: Int,               // after today
@@ -55,7 +56,6 @@ object Hours {
             if (kind == KIND_STUDY) a[0] += minutes / 60f else a[1] += minutes / 60f
         }
         d.sessions.forEach { add(LocalDate.parse(it.date), it.kind, it.minutes) }
-        d.timer?.let { add(appDayOf(it.start), it.kind, ((now - it.start) / 60_000).toInt()) }
         return m.mapValues { it.value[0] to it.value[1] }
     }
 
@@ -79,7 +79,7 @@ object Hours {
         }
         val t = days[today] ?: (0f to 0f)
         return HoursSummary(
-            yearStart = start, yearEnd = end, dayOfYear = dayOfYear, daysLeft = daysLeft,
+            yearStart = start, daysUntilStart = ChronoUnit.DAYS.between(today, start).toInt().coerceAtLeast(0), yearEnd = end, dayOfYear = dayOfYear, daysLeft = daysLeft,
             yearStudy = yearStudy, yearGoal = g.studyYear,
             expectedByToday = g.studyYear * (dayOfYear - 1) / total.toFloat(),
             projected = yearStudy / dayOfYear * total,

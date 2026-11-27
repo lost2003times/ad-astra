@@ -219,7 +219,8 @@ private fun DayPage(repo: Repository, data: AppData, date: LocalDate, editing: B
         }
 
         if (e != null && e.note.isNotBlank()) {
-            Row(Modifier.fillMaxWidth().padding(top = 18.dp).height(IntrinsicSize.Min)) {
+            Label("Memorable", Modifier.padding(top = 18.dp))
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp).height(IntrinsicSize.Min)) {
                 Box(Modifier.width(3.dp).fillMaxHeight().background(Astra.Signal))
                 Spacer(Modifier.width(14.dp))
                 Text(e.note, color = Astra.Text, fontSize = 20.sp, lineHeight = 28.sp, fontStyle = FontStyle.Italic)

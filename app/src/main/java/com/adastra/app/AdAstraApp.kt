@@ -27,6 +27,7 @@ class AdAstraApp : Application() {
         Reminder.createChannel(this)
         NewsAlarm.createChannel(this)
         TimerNotice.createChannel(this)
+        com.adastra.app.notify.Focus.resume(this)
         // Keep the running-timer notification in step with the data, however the timer changes.
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
             repo.data.map { it.timer }.distinctUntilChanged().collect { TimerNotice.sync(this@AdAstraApp, it) }

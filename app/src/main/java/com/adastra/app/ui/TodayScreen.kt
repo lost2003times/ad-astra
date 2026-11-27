@@ -423,13 +423,13 @@ private fun NoteSection(repo: Repository, date: LocalDate, note: String) {
     var text by remember(date) { mutableStateOf(note) }
     var saved by remember(date) { mutableStateOf(false) }
     Column(Modifier.padding(top = 16.dp)) {
-        Label("One line about the day")
+        Label("Memorable today")
         OutlinedTextField(
             value = text,
             onValueChange = { text = it; saved = false; repo.setNote(date, it) },
             modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-            placeholder = { Text("Today I…", color = Astra.Muted, fontStyle = FontStyle.Italic) },
-            maxLines = 4,
+            placeholder = { Text("What from today is worth remembering?", color = Astra.Muted, fontStyle = FontStyle.Italic) },
+            maxLines = 8,
             colors = fieldColors(),
         )
         Row {
